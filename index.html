@@ -1,0 +1,1811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bucket List">
+<meta name="theme-color" content="#8B6BFF">
+<title>Our Bucket List</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./config.js"></script>
+<style>
+  :root {
+    --coral: #FF6B7A;
+    --purple: #8B6BFF;
+    --orange: #FFA05C;
+    --mint: #2DD4BF;
+    --bg: #FBF9FF;
+    --card: #FFFFFF;
+    --text: #2A2640;
+    --text-soft: #8D89A6;
+    --border: #F0EDF9;
+    --radius-lg: 24px;
+    --radius-md: 16px;
+    --radius-sm: 12px;
+    --shadow-sm: 0 2px 10px rgba(139,92,246,0.09);
+    --shadow-md: 0 10px 30px rgba(139,92,246,0.22);
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+    -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+    overflow-wrap: break-word; display: flex; justify-content: center; min-height: 100%;
+  }
+  button { font-family: inherit; -webkit-tap-highlight-color: transparent; }
+  img { max-width: 100%; display: block; }
+  a { color: var(--purple); }
+  button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--purple); outline-offset: 2px; }
+
+  #app {
+    width: 100%; max-width: 480px; min-height: 100vh; background: var(--bg);
+    position: relative; display: flex; flex-direction: column; box-shadow: 0 0 60px rgba(0,0,0,0.06);
+  }
+
+  /* Header */
+  .header {
+    background: linear-gradient(135deg, var(--coral), var(--purple));
+    padding: calc(18px + var(--safe-top)) 20px 22px; border-radius: 0 0 28px 28px;
+    color: white; position: relative; z-index: 5;
+  }
+  .header-top { display:flex; align-items:center; gap:10px; margin-bottom:18px; }
+  .header-top h1 { font-size: 19px; font-weight: 800; letter-spacing: -0.02em; flex-shrink:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .header-search { flex:1; min-width:110px; position:relative; display:flex; align-items:center; }
+  .search-input { width:100%; border:none; border-radius:17px; padding:8px 30px 8px 14px; font-size:14px; font-family:inherit; background:rgba(255,255,255,0.22); color:white; }
+  .search-input::placeholder { color:rgba(255,255,255,0.75); }
+  .search-input:focus { outline:none; background:rgba(255,255,255,0.32); }
+  .search-input::-webkit-search-cancel-button, .search-input::-webkit-search-decoration { -webkit-appearance:none; appearance:none; }
+  .search-clear { position:absolute; right:4px; background:none; border:none; color:white; font-size:13px; padding:5px 8px; cursor:pointer; opacity:0.85; line-height:1; }
+  .header-actions { display:flex; gap:8px; }
+  .icon-btn {
+    background: rgba(255,255,255,0.22); border:none; color:white; width:34px; height:34px;
+    border-radius:50%; font-size:16px; display:flex; align-items:center; justify-content:center; cursor:pointer; flex-shrink:0;
+  }
+  .icon-btn.spinning { animation: spin 0.7s linear; }
+  .progress-row { display:flex; align-items:center; gap:12px; }
+  .progress-track { flex:1; height:8px; background:rgba(255,255,255,0.28); border-radius:6px; overflow:hidden; }
+  .progress-fill { height:100%; background:white; border-radius:6px; transition: width 0.5s cubic-bezier(.3,.8,.4,1); }
+  .progress-label { font-size:12.5px; font-weight:700; opacity:0.95; white-space:nowrap; }
+
+  .content { flex:1; overflow-y:auto; padding: 18px 16px 110px; -webkit-overflow-scrolling: touch; scrollbar-width:none; -ms-overflow-style:none; }
+  .content::-webkit-scrollbar { width:0; height:0; }
+
+  /* Chips */
+  .chip-row { display:flex; gap:8px; overflow-x:auto; padding:2px 2px 8px; margin:0 0 6px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+  .chip-row::-webkit-scrollbar { display:none; }
+  .chip { flex-shrink:0; border:1.5px solid var(--border); background:white; color:var(--text-soft); font-size:13px; font-weight:700; padding:7px 13px; border-radius:20px; cursor:pointer; line-height:1.2; }
+  .chip.active { background:linear-gradient(135deg, var(--coral), var(--purple)); color:white; border-color:transparent; }
+  .chip-row.picker { margin-bottom:14px; padding-bottom:2px; flex-wrap:wrap; overflow-x:visible; }
+  .chip-row.filter { flex-wrap:wrap; overflow-x:visible; row-gap:8px; }
+  .picker-hint { font-size:12.5px; color:var(--text-soft); margin:-8px 0 12px; line-height:1.4; }
+
+  .section-title { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-soft); margin: 22px 4px 10px; display:flex; align-items:center; gap:8px; }
+  .section-title:first-child { margin-top: 4px; }
+  .chip-row + .section-title { margin-top: 10px; }
+  .count-badge { background: var(--border); color: var(--text-soft); font-size:11px; font-weight:800; padding:2px 8px; border-radius:10px; }
+  .count-badge.done { background: rgba(45,212,191,0.16); color:#1a9e8f; }
+
+  .row { display:flex; align-items:center; gap:10px; background:var(--card); border-radius:var(--radius-md); padding:13px 12px; margin-bottom:10px; box-shadow:var(--shadow-sm); }
+  .row-cat { font-size:16px; flex-shrink:0; }
+  .row-text { flex:1; font-size:15.5px; font-weight:500; line-height:1.4; min-width:0; }
+  .row-main { flex:1; min-width:0; display:flex; flex-direction:column; gap:2px; }
+  .row-main .row-text { flex:none; }
+  .row-added { font-size:11.5px; font-weight:600; color:var(--text-soft); }
+  .row-note { font-size:12.5px; color:var(--text-soft); line-height:1.35; }
+  .done-row { cursor:pointer; }
+  .done-text { color: var(--text-soft); font-weight: 500; }
+  .row-icon-btn { background:none; border:none; font-size:15px; padding:6px; cursor:pointer; opacity:0.55; flex-shrink:0; }
+  .row-icon-btn:active { opacity:1; }
+  .row-link { text-decoration:none; font-size:15px; padding:6px; opacity:0.75; flex-shrink:0; line-height:1; }
+  .row-thumb { width:40px; height:40px; border-radius:10px; object-fit:cover; flex-shrink:0; }
+
+  .checkbox { width:27px; height:27px; border-radius:50%; border:2.5px solid var(--purple); background:white; flex-shrink:0; cursor:pointer; padding:0; display:flex; align-items:center; justify-content:center; }
+  .checkbox.checked { background: linear-gradient(135deg, var(--coral), var(--purple)); border:none; color:white; font-size:14px; font-weight:800; }
+
+  .empty-hint { color:var(--text-soft); font-size:13.5px; padding:6px 4px 4px; }
+  .empty-state { text-align:center; padding: 46px 18px 20px; }
+  .empty-emoji { font-size:46px; margin-bottom:14px; }
+  .empty-state h2 { font-size:19px; font-weight:800; margin-bottom:8px; }
+  .empty-state p { color:var(--text-soft); font-size:14.5px; margin-bottom:20px; line-height:1.5; }
+
+  .loading-state { text-align:center; padding:90px 20px; color:var(--text-soft); font-size:14px; }
+  .spinner { width:34px; height:34px; border:4px solid var(--border); border-top-color:var(--purple); border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 14px; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+
+  /* Memories */
+  .memory-feed { display:flex; flex-direction:column; gap:16px; }
+  .memory-card { background:var(--card); border-radius:var(--radius-lg); overflow:hidden; box-shadow:var(--shadow-sm); cursor:pointer; }
+  .memory-photo-wrap { position:relative; }
+  .memory-photo { width:100%; height:200px; object-fit:cover; }
+  .memory-meta { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; }
+  .memory-meta-cat { font-size:11px; font-weight:800; color:var(--text-soft); background:var(--border); padding:3px 9px; border-radius:6px; }
+  .memory-meta-date { font-family:'SF Mono','Menlo',Consolas,monospace; font-size:11px; font-weight:700; color:var(--text-soft); letter-spacing:0.03em; }
+  .memory-date-stamp { position:absolute; top:10px; right:10px; background:rgba(20,15,30,0.6); color:#FFE66D; font-family: 'SF Mono','Menlo',Consolas,monospace; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px; letter-spacing:0.03em; transform:rotate(-3deg); }
+  .memory-cat-stamp { position:absolute; top:10px; left:10px; background:rgba(255,255,255,0.92); color:var(--text); font-size:11px; font-weight:800; padding:3px 9px; border-radius:6px; transform:rotate(2deg); box-shadow:0 1px 4px rgba(0,0,0,0.12); }
+  .memory-body { padding:14px 16px 16px; }
+  .memory-title { font-weight:800; font-size:16.5px; margin-bottom:4px; letter-spacing:-0.01em; }
+  .memory-note { color:var(--text-soft); font-size:14px; line-height:1.45; }
+  .memory-note-empty { font-style:italic; opacity:0.8; }
+  .memory-link { display:inline-flex; align-items:center; gap:5px; text-decoration:none; color:var(--purple); font-weight:700; font-size:13px; margin-top:10px; }
+
+  /* FAB + tabs */
+  .fab-wrapper { position:fixed; bottom:calc(84px + var(--safe-bottom)); left:50%; transform:translateX(-50%); width:100%; max-width:480px; pointer-events:none; z-index:11; }
+  .fab { position:absolute; right:20px; bottom:0; pointer-events:auto; width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg, var(--coral), var(--orange)); color:white; font-size:28px; font-weight:600; border:none; box-shadow:var(--shadow-md); display:flex; align-items:center; justify-content:center; cursor:pointer; line-height:1; }
+  .tabbar { position:fixed; bottom:0; left:50%; transform:translateX(-50%); width:100%; max-width:480px; background:white; border-top:1px solid var(--border); display:flex; padding:8px 0 calc(8px + var(--safe-bottom)); z-index:10; }
+  .tab-btn { flex:1; background:none; border:none; display:flex; flex-direction:column; align-items:center; gap:2px; padding:6px; color:var(--text-soft); font-size:11px; font-weight:700; cursor:pointer; }
+  .tab-btn.active { color:var(--purple); }
+  .tab-icon { font-size:20px; }
+
+  /* Modal */
+  .overlay { position:fixed; inset:0; background:rgba(30,20,50,0.45); display:flex; align-items:flex-end; justify-content:center; z-index:100; animation:fadeIn 0.2s ease; }
+  @keyframes fadeIn { from{opacity:0;} to{opacity:1;} }
+  .sheet { background:white; width:100%; max-width:480px; border-radius:26px 26px 0 0; padding:20px 20px calc(22px + var(--safe-bottom)); max-height:88vh; overflow-y:auto; animation:slideUp 0.25s cubic-bezier(.2,.8,.3,1); }
+  @keyframes slideUp { from{ transform:translateY(100%);} to{ transform:translateY(0);} }
+  .sheet-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; gap:12px; }
+  .sheet-header h2 { font-size:19px; font-weight:800; letter-spacing:-0.01em; }
+  .sheet-header .icon-btn { background:var(--border); color:var(--text-soft); }
+
+  .field-label { display:block; font-size:12px; font-weight:800; color:var(--text-soft); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.05em; }
+  .text-input, .note-textarea, .bulk-textarea { width:100%; border:1.5px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; font-size:16px; font-family:inherit; margin-bottom:14px; background:#FDFCFF; color:var(--text); }
+  .text-input:focus, .note-textarea:focus, .bulk-textarea:focus { outline:none; border-color:var(--purple); }
+  .note-textarea { min-height:90px; resize:vertical; }
+  .bulk-textarea { min-height:130px; resize:vertical; }
+
+  .btn-primary { width:100%; background:linear-gradient(135deg, var(--coral), var(--purple)); color:white; border:none; padding:14px; border-radius:var(--radius-sm); font-size:15.5px; font-weight:800; cursor:pointer; margin-bottom:10px; }
+  .btn-primary:disabled { opacity:0.5; cursor:not-allowed; }
+  .btn-secondary { background:var(--border); color:var(--text); border:none; padding:12px 16px; border-radius:var(--radius-sm); font-size:14.5px; font-weight:700; cursor:pointer; }
+  .btn-danger { width:100%; background:none; color:#E23D5C; border:none; padding:12px; font-size:14.5px; font-weight:800; cursor:pointer; margin-top:4px; }
+  .btn-link { width:100%; background:none; border:none; color:var(--purple); font-size:14px; font-weight:700; padding:8px; cursor:pointer; }
+
+  .complete-item-title { font-size:17px; font-weight:800; margin-bottom:16px; letter-spacing:-0.01em; }
+  .compressing-hint { font-size:13px; color:var(--text-soft); margin:-6px 0 12px; }
+
+  .photo-row { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+  .photo-thumb-wrap { position:relative; width:72px; height:72px; }
+  .photo-thumb { width:100%; height:100%; object-fit:cover; border-radius:12px; }
+  .photo-remove { position:absolute; top:-6px; right:-6px; width:20px; height:20px; border-radius:50%; background:#E23D5C; color:white; border:2px solid white; font-size:10px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; padding:0; }
+  .photo-add-btn { width:72px; height:72px; border-radius:12px; border:2px dashed var(--border); display:flex; align-items:center; justify-content:center; font-size:22px; color:var(--text-soft); cursor:pointer; }
+
+  .photo-gallery { display:flex; gap:10px; overflow-x:auto; margin-bottom:16px; padding-bottom:4px; }
+  .gallery-photo { width:150px; height:150px; object-fit:cover; border-radius:14px; flex-shrink:0; }
+  .detail-date { font-size:13px; color:var(--text-soft); font-weight:700; margin-bottom:14px; }
+  .detail-link { display:inline-flex; align-items:center; gap:6px; text-decoration:none; background:var(--border); color:var(--purple); font-weight:700; font-size:13.5px; padding:9px 13px; border-radius:10px; margin-bottom:16px; }
+  .detail-note { font-size:15px; line-height:1.55; margin-bottom:18px; }
+  .detail-note-empty { font-size:14px; color:var(--text-soft); font-style:italic; margin-bottom:18px; }
+  .detail-actions { display:flex; gap:10px; margin-bottom:8px; }
+  .detail-actions .btn-secondary { flex:1; }
+  .photos-loading { font-size:13px; color:var(--text-soft); margin-bottom:16px; }
+
+  .confirm-message { font-size:15px; color:var(--text-soft); margin-bottom:20px; line-height:1.5; }
+  .confirm-actions { display:flex; gap:10px; }
+  .confirm-actions button { flex:1; }
+
+  /* Smart import */
+  .smart-hint { font-size:13.5px; color:var(--text-soft); line-height:1.5; margin:-4px 0 14px; }
+  .smart-summary { font-size:12.5px; font-weight:800; color:var(--text-soft); margin:2px 0 14px; display:flex; gap:6px 14px; flex-wrap:wrap; align-items:center; }
+  .smart-summary .total { color:var(--text); }
+  .smart-list { display:flex; flex-direction:column; gap:8px; margin-bottom:16px; }
+  .smart-row { background:#FDFCFF; border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px 11px; display:flex; flex-direction:column; gap:9px; }
+  .smart-row-text { font-size:14.5px; font-weight:600; line-height:1.35; }
+  .smart-cat-picker { display:flex; gap:6px; flex-wrap:wrap; }
+  .smart-cat-btn { flex:1 1 auto; min-width:64px; border:1.5px solid var(--border); background:white; border-radius:10px; padding:7px 4px; font-size:15px; cursor:pointer; line-height:1; display:flex; align-items:center; justify-content:center; gap:4px; color:var(--text-soft); font-weight:700; }
+  .smart-cat-btn .lbl { font-size:11px; }
+  .smart-cat-btn.active { opacity:1; border-color:transparent; background:linear-gradient(135deg,var(--coral),var(--purple)); color:white; }
+  .smart-empty { font-size:14px; color:var(--text-soft); text-align:center; padding:20px 8px; line-height:1.5; }
+
+  /* Manage categories */
+  .cat-manage-row { display:flex; align-items:center; gap:12px; background:#FDFCFF; border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; margin-bottom:8px; }
+  .cat-manage-emoji { font-size:20px; flex-shrink:0; }
+  .cat-manage-label { flex:1; font-weight:700; font-size:15px; min-width:0; }
+  .cat-add-btn { width:100%; background:var(--border); color:var(--text); border:none; padding:12px; border-radius:var(--radius-sm); font-size:14.5px; font-weight:800; cursor:pointer; margin:6px 0 4px; }
+  .emoji-grid { display:grid; grid-template-columns:repeat(8,1fr); gap:6px; margin:0 0 16px; }
+  .emoji-opt { border:1.5px solid var(--border); background:white; border-radius:10px; padding:7px 0; font-size:18px; cursor:pointer; line-height:1; }
+  .emoji-opt.active { border-color:transparent; background:linear-gradient(135deg,var(--coral),var(--purple)); }
+
+  /* Settings menu */
+  .settings-row { display:flex; align-items:center; gap:12px; width:100%; background:#FDFCFF; border:1px solid var(--border); border-radius:var(--radius-sm); padding:14px 12px; margin-bottom:8px; cursor:pointer; font-size:15px; font-weight:700; color:var(--text); text-align:left; }
+  .settings-row .chev { margin-left:auto; color:var(--text-soft); font-size:18px; line-height:1; }
+
+  /* Batch select */
+  .list-toolbar { display:flex; justify-content:flex-end; margin:-4px 0 2px; }
+  .select-toggle-btn { background:none; border:none; color:var(--purple); font-weight:800; font-size:13px; padding:6px 8px; cursor:pointer; }
+  .sel-row { cursor:pointer; }
+  .sel-indicator { width:26px; height:26px; border-radius:50%; border:2px solid var(--border); flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:800; color:white; }
+  .sel-row.selected { background:#F6F2FF; box-shadow:0 0 0 2px var(--purple) inset, var(--shadow-sm); }
+  .sel-row.selected .sel-indicator { background:linear-gradient(135deg,var(--coral),var(--purple)); border-color:transparent; }
+  .batch-bar { position:fixed; bottom:calc(64px + var(--safe-bottom)); left:50%; transform:translateX(-50%); width:100%; max-width:480px; background:white; border-top:1px solid var(--border); box-shadow:0 -8px 24px rgba(139,92,246,0.16); padding:10px 14px 12px; z-index:12; display:flex; flex-direction:column; gap:8px; }
+  .batch-bar-top { display:flex; justify-content:space-between; align-items:center; font-size:13px; font-weight:800; gap:8px; }
+  .batch-mini { background:none; border:none; color:var(--purple); font-weight:800; font-size:12.5px; cursor:pointer; padding:4px 6px; }
+  .batch-cancel { background:none; border:none; color:var(--text-soft); font-weight:800; font-size:12.5px; cursor:pointer; padding:4px 6px; }
+  .batch-chips { display:flex; gap:8px; overflow-x:auto; padding:2px; scrollbar-width:none; }
+  .batch-chips::-webkit-scrollbar { display:none; }
+  .content.select-pad { padding-bottom:210px; }
+  .smart-toolbar { display:flex; justify-content:flex-end; margin:-6px 0 6px; }
+  .smart-select-bar { position:sticky; top:-1px; background:white; z-index:2; padding:8px 0 10px; border-bottom:1px solid var(--border); margin-bottom:10px; display:flex; flex-direction:column; gap:8px; }
+  .smart-row.sel-row { flex-direction:row; align-items:center; gap:10px; }
+  .sel-row .smart-row-text { flex:1; min-width:0; }
+  .smart-cat-tag { font-size:12px; font-weight:700; color:var(--text-soft); flex-shrink:0; }
+  .smart-setall { margin:0 0 12px; padding:10px 12px; background:#FBF9FF; border:1px solid var(--border); border-radius:var(--radius-sm); }
+  .smart-setall-label { display:block; font-size:12px; font-weight:800; color:var(--text-soft); margin-bottom:8px; }
+
+  /* Auth gate */
+  .auth-screen { min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:calc(40px + var(--safe-top)) 24px calc(40px + var(--safe-bottom)); background:linear-gradient(160deg, var(--coral), var(--purple)); }
+  .auth-card { background:white; border-radius:24px; padding:26px 22px; width:100%; max-width:360px; box-shadow:var(--shadow-md); text-align:center; }
+  .auth-emoji { font-size:40px; margin-bottom:8px; }
+  .auth-title { font-size:20px; font-weight:800; margin-bottom:6px; letter-spacing:-0.01em; }
+  .auth-sub { font-size:13.5px; color:var(--text-soft); line-height:1.5; margin-bottom:18px; }
+  .auth-card .field-label { text-align:left; }
+  .auth-card .text-input { text-align:left; }
+  .auth-error { color:#E23D5C; font-size:13px; font-weight:700; margin:-6px 0 10px; min-height:16px; text-align:left; }
+  .auth-remember { display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text); font-weight:600; margin:2px 0 14px; text-align:left; cursor:pointer; }
+  .auth-remember input { width:16px; height:16px; }
+  .auth-note { font-size:11.5px; color:var(--text-soft); line-height:1.45; margin-top:14px; text-align:left; }
+  .gbtn { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; background:white; color:#3c4043; border:1.5px solid #dadce0; border-radius:12px; padding:12px 14px; font-size:15px; font-weight:700; cursor:pointer; font-family:inherit; }
+  .gbtn:disabled { opacity:0.6; }
+  .gbtn:active { background:#f7f8f8; }
+  .gbtn-logo { flex-shrink:0; }
+
+  /* Sync failure toast */
+  .sync-toast { position:fixed; left:50%; transform:translateX(-50%); bottom:calc(76px + var(--safe-bottom)); width:calc(100% - 32px); max-width:448px; background:#2A2640; color:white; border-radius:14px; padding:12px 14px; z-index:90; box-shadow:0 10px 30px rgba(0,0,0,0.35); flex-direction:column; gap:8px; font-size:13px; }
+  .sync-toast-title { font-weight:800; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .sync-toast-msg { opacity:0.85; line-height:1.45; }
+  .sync-toast-actions { display:flex; gap:8px; }
+  .sync-toast-retry { background:white; color:#2A2640; border:none; border-radius:9px; padding:8px 14px; font-weight:800; font-size:13px; cursor:pointer; font-family:inherit; }
+  .sync-toast-retry:disabled { opacity:0.6; }
+  .sync-toast-dismiss { background:none; border:none; color:white; opacity:0.7; font-size:14px; cursor:pointer; padding:2px 6px; line-height:1; }
+
+  /* Confetti */
+  .confetti-container { position:fixed; inset:0; pointer-events:none; z-index:9999; overflow:hidden; }
+  .confetti-piece { position:absolute; top:-20px; width:10px; height:14px; opacity:0.9; border-radius:2px; animation:confettiFall linear forwards; }
+  @keyframes confettiFall { to { transform:translateY(112vh) rotate(600deg); opacity:0.3; } }
+
+  @media (prefers-reduced-motion: reduce) { * { animation-duration:0.01ms !important; animation-iteration-count:1 !important; transition-duration:0.01ms !important; } }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ---------------- Supabase client ----------------
+  var CONFIG = window.BUCKET_CONFIG || {};
+  var sb = null, sbInitError = '';
+  try {
+    if (CONFIG.__client) { sb = CONFIG.__client; }
+    else if (window.supabase && CONFIG.SUPABASE_URL && CONFIG.SUPABASE_ANON_KEY &&
+             String(CONFIG.SUPABASE_URL).indexOf('YOUR-') === -1 && String(CONFIG.SUPABASE_ANON_KEY).indexOf('YOUR-') === -1) {
+      sb = window.supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+    }
+  } catch (e) { sbInitError = e && e.message ? e.message : String(e); }
+
+  var DEFAULT_CATEGORIES = [
+    { id: 'do',    label: 'Do',    emoji: '✨' },
+    { id: 'eat',   label: 'Eat',   emoji: '🍜' },
+    { id: 'watch', label: 'Watch', emoji: '🎬' },
+    { id: 'play',  label: 'Play',  emoji: '🎮' }
+  ];
+  var EMOJI_PRESETS = ['✨','🍜','🍳','🧑‍🍳','🔪','🥘','🎬','🎮','✈️','🏔️','🏖️','🎡','🎨','🎵','📚','🍷','☕','🍣','🏃','🏋️','🚗','🌅','🎉','❤️','🏕️','🎯','🧗','🛍️','📷','🐶','🌸','🌍'];
+
+  var state = {
+    items: [],
+    categories: DEFAULT_CATEGORIES.map(function (c) { return { id: c.id, label: c.label, emoji: c.emoji }; }),
+    activeTab: 'list',
+    searchQuery: '',
+    selectMode: false,
+    selectedIds: {},
+    activeCategory: 'all',
+    loading: true,
+    modal: null,
+    auth: { status: 'checking', email: '', error: '', busy: false }
+  };
+
+  function catInfo(id) {
+    if (!id) return null;
+    for (var i = 0; i < state.categories.length; i++) { if (state.categories[i].id === id) return state.categories[i]; }
+    return null;
+  }
+  function catExists(id) { return state.categories.some(function (c) { return c.id === id; }); }
+  function normalizeCat(id) { return (id && catExists(id)) ? id : null; }
+
+  // ---------------- storage (hardened: never throws) ----------------
+  var sync = { pending: {}, toastEl: null };
+
+  function looksTransient(e) {
+    var msg = ((e && e.message) || String(e || '')).toLowerCase();
+    return /internal|server|network|timeout|temporar|unavailable|fetch|failed|connection|5\d\d/.test(msg);
+  }
+  function storageGet(key, attempt) {
+    attempt = attempt || 0;
+    if (!sb) return Promise.resolve(null);
+    return sb.from('kv').select('value').eq('key', key).maybeSingle().then(function (res) {
+      if (res.error) throw res.error;
+      return res.data ? res.data.value : null;
+    }).catch(function (e) {
+      if (attempt < 2 && looksTransient(e)) {
+        return new Promise(function (res) { setTimeout(res, 500 * (attempt + 1)); }).then(function () { return storageGet(key, attempt + 1); });
+      }
+      return null;
+    });
+  }
+  function storageSet(key, value, attempt) {
+    attempt = attempt || 0;
+    if (!sb) { markSyncFailed(key, value); return Promise.resolve(false); }
+    return sb.from('kv').upsert({ key: key, value: value }, { onConflict: 'key' }).then(function (res) {
+      if (res.error) throw res.error;
+      markSynced(key);
+      return true;
+    }).catch(function (e) {
+      if (attempt < 2) {
+        return new Promise(function (res) { setTimeout(res, 600 * (attempt + 1)); }).then(function () { return storageSet(key, value, attempt + 1); });
+      }
+      console.error('storage set failed', key, e);
+      markSyncFailed(key, value);
+      return false;
+    });
+  }
+  function markSyncFailed(key, value) { sync.pending[key] = value; showSyncToast(); }
+  function markSynced(key) {
+    if (key in sync.pending) {
+      delete sync.pending[key];
+      if (!Object.keys(sync.pending).length) hideSyncToast();
+    }
+  }
+  function hasPendingSync() { return Object.keys(sync.pending).length > 0; }
+  function retrySync() {
+    var keys = Object.keys(sync.pending);
+    return Promise.all(keys.map(function (k) { return storageSet(k, sync.pending[k]); }));
+  }
+  function ensureToast() {
+    if (sync.toastEl) return sync.toastEl;
+    var el = document.createElement('div');
+    el.className = 'sync-toast';
+    el.style.display = 'none';
+    el.innerHTML = '<div class="sync-toast-title"><span>⚠️ Couldn’t save your changes</span><button class="sync-toast-dismiss" aria-label="Dismiss">✕</button></div>' +
+      '<div class="sync-toast-msg">Couldn’t reach the server. Your changes are safe on this device for now — check your connection and tap Try again.</div>' +
+      '<div class="sync-toast-actions"><button class="sync-toast-retry">Try again</button></div>';
+    document.body.appendChild(el);
+    el.querySelector('.sync-toast-dismiss').onclick = function () { el.style.display = 'none'; };
+    el.querySelector('.sync-toast-retry').onclick = function () {
+      var b = el.querySelector('.sync-toast-retry');
+      b.disabled = true; b.textContent = 'Retrying…';
+      retrySync().then(function () { b.disabled = false; b.textContent = 'Try again'; });
+    };
+    sync.toastEl = el;
+    return el;
+  }
+  function showSyncToast() { ensureToast().style.display = 'flex'; }
+  function hideSyncToast() { if (sync.toastEl) sync.toastEl.style.display = 'none'; }
+  function storageDelete(key) {
+    if (!sb) return Promise.resolve(null);
+    return sb.from('kv').delete().eq('key', key).then(function () { return null; }).catch(function () { return null; });
+  }
+  // ---------------- auth (Google via Supabase; allowlist enforced by RLS server-side) ----------------
+  var rtStarted = false;
+  function initAuth() {
+    if (!sb) { state.auth.status = 'config'; state.auth.error = sbInitError; render(); return; }
+    state.auth.status = 'checking';
+    render();
+    sb.auth.getSession().then(function (r) {
+      var session = r && r.data ? r.data.session : null;
+      if (!session) { state.auth.status = 'locked'; render(); return; }
+      afterSession(session);
+    }).catch(function (e) { state.auth.status = 'error'; state.auth.error = (e && e.message) || 'Could not check session.'; render(); });
+    try {
+      sb.auth.onAuthStateChange(function (evt, session) {
+        if (evt === 'SIGNED_IN' && state.auth.status !== 'unlocked' && session) afterSession(session);
+        if (evt === 'SIGNED_OUT') { state.auth.status = 'locked'; state.auth.email = ''; state.items = []; state.modal = null; render(); }
+      });
+    } catch (e) {}
+  }
+  function afterSession(session) {
+    state.auth.email = session && session.user ? (session.user.email || '') : '';
+    state.auth.status = 'checking';
+    render();
+    // RLS lets an allowed user see exactly their own row here; anyone else sees zero rows.
+    sb.from('allowed_users').select('email').limit(1).then(function (res) {
+      if (res.error) { state.auth.status = 'error'; state.auth.error = res.error.message || 'Connection problem.'; render(); return; }
+      if (res.data && res.data.length) {
+        state.auth.status = 'unlocked';
+        state.auth.error = '';
+        startRealtime();
+        loadAll();
+      } else {
+        state.auth.status = 'denied';
+        render();
+      }
+    }).catch(function (e) { state.auth.status = 'error'; state.auth.error = (e && e.message) || 'Connection problem.'; render(); });
+  }
+  function signInWithGoogle() {
+    if (!sb) return;
+    state.auth.busy = true; state.auth.error = ''; render();
+    sb.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: location.origin + location.pathname,
+        queryParams: { prompt: 'select_account' }
+      }
+    }).catch(function (e) {
+      state.auth.busy = false;
+      state.auth.error = (e && e.message) || 'Could not start Google sign-in.';
+      render();
+    });
+  }
+  function doLogout() {
+    state.modal = null;
+    state.auth.status = 'locked';
+    state.auth.email = '';
+    state.auth.error = '';
+    if (sb) { try { sb.auth.signOut(); } catch (e) {} }
+    render();
+  }
+  // Live sync: another device's save triggers a quiet reload here.
+  function startRealtime() {
+    if (rtStarted || !sb || typeof sb.channel !== 'function') return;
+    rtStarted = true;
+    try {
+      sb.channel('kv-watch').on('postgres_changes',
+        { event: '*', schema: 'public', table: 'kv', filter: 'key=in.(bucket-list-items,bucket-list-categories)' },
+        function (payload) {
+          var k = (payload && ((payload.new && payload.new.key) || (payload.old && payload.old.key))) || '';
+          if (k !== 'bucket-list-items' && k !== 'bucket-list-categories') return;
+          if (state.auth.status !== 'unlocked' || state.modal || hasPendingSync()) return;
+          if (document.activeElement && document.activeElement.id === 'searchInput') return;
+          loadAll(true);
+        }).subscribe();
+    } catch (e) {}
+  }
+
+  function loadAll(quiet) {
+    if (!quiet) { state.loading = true; render(); }
+    storageGet('bucket-list-categories').then(function (rawCats) {
+      if (rawCats) {
+        try {
+          var c = JSON.parse(rawCats);
+          if (Array.isArray(c)) {
+            state.categories = c.filter(function (x) { return x && x.id; }).map(function (x) { return { id: x.id, label: x.label || 'Untitled', emoji: x.emoji || '📌' }; });
+          }
+        } catch (e) {}
+      }
+      return storageGet('bucket-list-items');
+    }).then(function (rawItems) {
+      if (rawItems) {
+        try { state.items = JSON.parse(rawItems); } catch (e) { state.items = []; }
+      } else { state.items = []; }
+      state.items.forEach(function (i) {
+        i.category = normalizeCat(i.category);
+        if (i.link === undefined) i.link = null;
+        if (i.location === undefined) i.location = null;
+      });
+      if (state.activeCategory !== 'all' && state.activeCategory !== 'none' && !catExists(state.activeCategory)) state.activeCategory = 'all';
+      state.loading = false;
+      render();
+    });
+  }
+  function persistItems() { return storageSet('bucket-list-items', JSON.stringify(state.items)); }
+  function persistCategories() { return storageSet('bucket-list-categories', JSON.stringify(state.categories)); }
+
+  function getPhotos(itemId) {
+    return storageGet('bucket-list-photos:' + itemId).then(function (raw) {
+      if (!raw) return [];
+      try { return JSON.parse(raw); } catch (e) { return []; }
+    });
+  }
+  function savePhotos(itemId, photos) { return storageSet('bucket-list-photos:' + itemId, JSON.stringify(photos)); }
+  function deletePhotosKey(itemId) { return storageDelete('bucket-list-photos:' + itemId); }
+
+  // ---------------- utils ----------------
+  function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 9); }
+  function escapeHtml(str) {
+    if (str === null || str === undefined) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+  function truncate(str, n) { return str.length > n ? str.slice(0, n - 1) + '…' : str; }
+
+  function normalizeUrl(raw) {
+    var s = (raw || '').trim();
+    if (!s) return null;
+    if (/^\s*javascript:/i.test(s) || /^\s*data:/i.test(s)) return null;
+    if (/^(https?:\/\/|mailto:|tel:)/i.test(s)) return s;
+    if (/^[\w.-]+\.[a-z]{2,}([\/:?#]|$)/i.test(s)) return 'https://' + s;
+    return null;
+  }
+  function linkLabel(url) {
+    if (/^mailto:/i.test(url)) return 'Email';
+    if (/^tel:/i.test(url)) return 'Call';
+    var m = url.match(/^https?:\/\/([^\/]+)/i);
+    return m ? m[1].replace(/^www\./i, '') : 'Open link';
+  }
+  // Location is stored as the user's raw place name / address (or a map link).
+  function cleanLocation(raw) {
+    var s = (raw || '').trim();
+    if (!s) return null;
+    if (/^\s*(javascript|data):/i.test(s)) return null;
+    return s;
+  }
+  // Build the tappable Maps URL: pasted http(s) links open directly; plain
+  // place names / addresses become a Google Maps search.
+  function locationUrl(loc) {
+    var s = (loc || '').trim();
+    if (!s) return null;
+    if (/^\s*(javascript|data):/i.test(s)) return null;
+    if (/^https?:\/\//i.test(s)) return s;
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(s);
+  }
+  function locationLabel(loc) {
+    if (!loc) return 'Map';
+    if (/^https?:\/\//i.test(loc)) { var m = loc.match(/^https?:\/\/([^\/]+)/i); return m ? m[1].replace(/^www\./i, '') : 'Map'; }
+    return truncate(loc, 30);
+  }
+
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function toISODateInputValue(iso) {
+    if (!iso) return todayISO();
+    var d = new Date(iso);
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function safeISOFromDateInput(dateStr) {
+    var d = (dateStr && dateStr.trim()) ? dateStr : todayISO();
+    var parsed = new Date(d + 'T12:00:00');
+    if (isNaN(parsed.getTime())) parsed = new Date();
+    return parsed.toISOString();
+  }
+  function formatDate(iso) { if (!iso) return ''; return new Date(iso).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }); }
+  function formatAddedDate(iso) {
+    if (!iso) return '';
+    var then = new Date(iso), now = new Date();
+    if (isNaN(then.getTime())) return '';
+    var startThen = new Date(then.getFullYear(), then.getMonth(), then.getDate());
+    var startNow = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var days = Math.round((startNow - startThen) / 86400000);
+    if (days <= 0) return 'Added today';
+    if (days === 1) return 'Added yesterday';
+    if (days < 7) return 'Added ' + days + ' days ago';
+    var sameYear = then.getFullYear() === now.getFullYear();
+    return 'Added ' + then.toLocaleDateString('en-US', sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+  function formatDateStamp(iso) {
+    var d = new Date(iso);
+    return String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0') + '.' + String(d.getFullYear()).slice(-2);
+  }
+
+  // ---------------- paste parsing / auto-categorization ----------------
+  var EAT_WORDS = ['eat','eating','food','foods','restaurant','restaurants','dining','dine','dinner','lunch','breakfast','brunch','cuisine','cuisines','meal','meals','drink','drinks','cafe','cafes','coffee','dessert','desserts','snack','snacks','taste','tasting','michelin','omakase','sushi','ramen','pizza','bakery','bar','bars','cook','cooking','recipe','recipes','foodie','wine','cocktail','cocktails'];
+  var WATCH_WORDS = ['watch','watching','movie','movies','film','films','show','shows','series','tv','television','cinema','documentary','documentaries','anime','netflix','stream','streaming','binge','rewatch'];
+  var PLAY_WORDS = ['play','playing','game','games','gaming','videogame','videogames','arcade','ps5','playstation','xbox','nintendo','switch','steam','esports'];
+  var DO_WORDS = ['do','doing','activity','activities','experience','experiences','adventure','adventures','go','going','visit','visiting','see','try','trip','trips','travel','place','places','destination','destinations','bucket'];
+
+  function normalizeForMatch(text) { return ' ' + String(text).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim() + ' '; }
+  function hasWord(normalized, list) {
+    for (var i = 0; i < list.length; i++) { if (normalized.indexOf(' ' + list[i] + ' ') !== -1) return true; }
+    return false;
+  }
+  function mapToCategory(text) {
+    var n = normalizeForMatch(text);
+    if (/ video games? /.test(n) || / board games? /.test(n) || hasWord(n, PLAY_WORDS)) return normalizeCat('play');
+    if (hasWord(n, WATCH_WORDS)) return normalizeCat('watch');
+    if (hasWord(n, EAT_WORDS)) return normalizeCat('eat');
+    if (hasWord(n, DO_WORDS)) return normalizeCat('do');
+    return null;
+  }
+
+  // Strip leading bullets, numbers, and markdown/unicode checkboxes (e.g. "- [ ] ", "[x] ", "• ").
+  function stripBullet(line) {
+    var s = line.replace(/^\s+/, '');
+    var prev;
+    do {
+      prev = s;
+      s = s.replace(/^[•·▪◦‣●○◯▫◻◽⬜☐☑☒✅❑❒]\uFE0F?\s*/, ''); // unicode bullets / ballot boxes (space optional)
+      s = s.replace(/^[-–—*+]\s+/, '');                          // ascii bullets (require a space)
+      s = s.replace(/^o\s+/, '');                                // "o" bullet (require a space)
+      s = s.replace(/^\d+[.)]\s+/, '');                          // "1." / "1)"
+      s = s.replace(/^\[\s*[xX\-–—✓✔]?\s*\]\s*/, '');            // [ ] [] [x] [X] [-] [✓]
+    } while (s !== prev && s.length);
+    return s.trim();
+  }
+  function isBulletedLine(line) {
+    return /^\s*[•·▪◦‣●○◯▫◻◽⬜☐☑☒✅❑❒]/.test(line) || /^\s*[-–—*+]\s+/.test(line) || /^\s*o\s+/.test(line) || /^\s*\d+[.)]\s+/.test(line) || /^\s*\[\s*[xX\-–—✓✔]?\s*\]/.test(line);
+  }
+  function isHeaderLine(line) {
+    var t = line.trim();
+    if (!t) return false;
+    if (isBulletedLine(line)) return false;
+    var lower = t.toLowerCase();
+    if (/[:：]\s*$/.test(t)) return true;
+    if (/\bwant to\b/.test(lower) || /\bwe want\b/.test(lower)) return true;
+    if (/^(things?|stuff|places?|food|foods|restaurants?|movies?|films?|shows?|series|tv|games?|experiences?|adventures?|activities|activity|trips?|destinations?|bucket ?list|list|categor(y|ies)|to ?do|to ?eat|to ?watch|to ?play|wanna|wishlist)\b/.test(lower)) return true;
+    var letters = t.replace(/[^A-Za-z]/g, '');
+    if (letters.length >= 2 && t === t.toUpperCase() && t.split(/\s+/).length <= 5) return true;
+    return false;
+  }
+  function parseStructuredList(text) {
+    var lines = String(text || '').split(/\r?\n/);
+    var out = [];
+    var currentCat = null;
+    var sawHeader = false;
+    var hasBullets = lines.some(function (l) { return isBulletedLine(l); });
+    for (var i = 0; i < lines.length; i++) {
+      var raw = lines[i];
+      if (!raw.trim()) continue;
+      // In a bulleted note, any non-bulleted line is a section header.
+      if (isHeaderLine(raw) || (hasBullets && !isBulletedLine(raw))) { currentCat = mapToCategory(raw); sawHeader = true; continue; }
+      var itemText = stripBullet(raw);
+      if (!itemText) continue;
+      out.push({ text: itemText, category: sawHeader ? currentCat : mapToCategory(itemText) });
+    }
+    return out;
+  }
+  function commitParsedItems(parsed) {
+    if (!parsed || !parsed.length) return;
+    var now = new Date().toISOString();
+    parsed.forEach(function (p) {
+      state.items.push({ id: genId(), text: p.text, category: normalizeCat(p.category), link: null, location: null, status: 'todo', createdAt: now, completedAt: null, note: null, thumbnail: null });
+    });
+    persistItems();
+  }
+
+  function triggerConfetti() {
+    var colors = ['#FF6B7A', '#FFA05C', '#8B6BFF', '#2DD4BF', '#FFE66D'];
+    var container = document.createElement('div');
+    container.className = 'confetti-container';
+    document.body.appendChild(container);
+    for (var i = 0; i < 40; i++) {
+      var piece = document.createElement('div');
+      piece.className = 'confetti-piece';
+      piece.style.left = (Math.random() * 100) + 'vw';
+      piece.style.background = colors[Math.floor(Math.random() * colors.length)];
+      piece.style.animationDelay = (Math.random() * 0.3) + 's';
+      piece.style.animationDuration = (1.8 + Math.random() * 1.2) + 's';
+      piece.style.transform = 'rotate(' + Math.floor(Math.random() * 360) + 'deg)';
+      container.appendChild(piece);
+    }
+    setTimeout(function () { container.remove(); }, 3200);
+  }
+
+  function compressDataUrl(dataUrl, maxDimension, quality) {
+    return new Promise(function (resolve, reject) {
+      var img = new Image();
+      img.onload = function () {
+        var width = img.width, height = img.height;
+        if (width > height && width > maxDimension) { height = Math.round(height * (maxDimension / width)); width = maxDimension; }
+        else if (height >= width && height > maxDimension) { width = Math.round(width * (maxDimension / height)); height = maxDimension; }
+        var canvas = document.createElement('canvas');
+        canvas.width = width; canvas.height = height;
+        canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+  }
+  function compressFile(file, maxDimension, quality) {
+    return new Promise(function (resolve, reject) {
+      var reader = new FileReader();
+      reader.onload = function (e) { compressDataUrl(e.target.result, maxDimension, quality).then(resolve).catch(reject); };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  }
+
+  // ---------------- item actions ----------------
+  function doBulkImport(text, category) {
+    var lines = (text || '').split('\n').map(function (l) { return stripBullet(l); }).filter(Boolean);
+    if (!lines.length) return;
+    var cat = normalizeCat(category);
+    var now = new Date().toISOString();
+    lines.forEach(function (line) {
+      state.items.push({ id: genId(), text: line, category: cat, link: null, location: null, status: 'todo', createdAt: now, completedAt: null, note: null, thumbnail: null });
+    });
+    persistItems();
+    state.modal = null;
+    state.activeTab = 'list';
+    state.activeCategory = cat || 'all';
+    render();
+  }
+  function addItem(text, category, link, note, location) {
+    var t = stripBullet(text).trim();
+    if (!t) return null;
+    var item = { id: genId(), text: t, category: normalizeCat(category), link: normalizeUrl(link), location: cleanLocation(location), status: 'todo', createdAt: new Date().toISOString(), completedAt: null, note: (note || '').trim() || null, thumbnail: null };
+    state.items.push(item);
+    persistItems();
+    return item;
+  }
+  function deleteItem(itemId) {
+    state.items = state.items.filter(function (i) { return i.id !== itemId; });
+    persistItems();
+    deletePhotosKey(itemId);
+    state.modal = null;
+    render();
+  }
+  function uncompleteItem(itemId) {
+    var item = state.items.find(function (i) { return i.id === itemId; });
+    if (!item) return;
+    item.status = 'todo';
+    persistItems();
+    state.modal = null;
+    render();
+  }
+  function confirmComplete() {
+    syncModalFieldsFromDOM();
+    var m = state.modal;
+    var item = state.items.find(function (i) { return i.id === m.itemId; });
+    if (!item) return;
+    var photos = m.photos || [];
+    item.status = 'done';
+    item.completedAt = safeISOFromDateInput(m.date);
+    item.note = (m.note || '').trim() || null;
+    item.link = normalizeUrl(m.link);
+    item.location = cleanLocation(m.location);
+    var finish = function () { persistItems(); state.modal = null; render(); triggerConfetti(); };
+    if (photos.length) {
+      compressDataUrl(photos[0], 300, 0.5).then(function (thumb) { item.thumbnail = thumb; savePhotos(item.id, photos).then(finish); });
+    } else { item.thumbnail = null; deletePhotosKey(item.id); finish(); }
+  }
+  function saveDetailEdits() {
+    syncModalFieldsFromDOM();
+    var m = state.modal;
+    var item = state.items.find(function (i) { return i.id === m.itemId; });
+    if (!item) return;
+    item.note = (m.note || '').trim() || null;
+    item.completedAt = safeISOFromDateInput(m.date);
+    item.category = normalizeCat(m.category !== undefined ? m.category : item.category);
+    item.link = normalizeUrl(m.link);
+    item.location = cleanLocation(m.location);
+    var photos = m.photos || [];
+    var finish = function () { persistItems(); state.modal = { type: 'detail', itemId: item.id, editing: false, photos: photos, loadingPhotos: false }; render(); };
+    if (photos.length) {
+      compressDataUrl(photos[0], 300, 0.5).then(function (thumb) { item.thumbnail = thumb; savePhotos(item.id, photos).then(finish); });
+    } else { item.thumbnail = null; deletePhotosKey(item.id); finish(); }
+  }
+  function openDetail(itemId) {
+    state.modal = { type: 'detail', itemId: itemId, editing: false, photos: [], loadingPhotos: true };
+    render();
+    getPhotos(itemId).then(function (photos) {
+      if (state.modal && state.modal.itemId === itemId) { state.modal.photos = photos; state.modal.loadingPhotos = false; render(); }
+    });
+  }
+  function openCompleteModal(itemId) {
+    var item = state.items.find(function (i) { return i.id === itemId; });
+    if (!item) return;
+    state.modal = { type: 'complete', itemId: itemId, photos: [], note: item.note || '', link: item.link || '', location: item.location || '', date: todayISO(), compressing: false };
+    render();
+    if (item.thumbnail) {
+      getPhotos(itemId).then(function (photos) {
+        if (state.modal && state.modal.itemId === itemId && state.modal.type === 'complete') { state.modal.photos = photos; render(); }
+      });
+    }
+  }
+
+  function syncModalFieldsFromDOM() {
+    if (!state.modal) return;
+    var m = state.modal;
+    if (m.type === 'complete') {
+      var d1 = document.getElementById('completeDate'); if (d1) m.date = d1.value;
+      var n1 = document.getElementById('completeNote'); if (n1) m.note = n1.value;
+      var l1 = document.getElementById('completeLink'); if (l1) m.link = l1.value;
+      var lc1 = document.getElementById('completeLocation'); if (lc1) m.location = lc1.value;
+    } else if (m.type === 'detail' && m.editing) {
+      var d2 = document.getElementById('editDate'); if (d2) m.date = d2.value;
+      var n2 = document.getElementById('editNote'); if (n2) m.note = n2.value;
+      var l2 = document.getElementById('editLink'); if (l2) m.link = l2.value;
+      var lc2 = document.getElementById('editLocation'); if (lc2) m.location = lc2.value;
+    }
+  }
+
+  function handlePhotoFiles(fileList) {
+    var files = Array.prototype.slice.call(fileList || []);
+    if (!files.length) return;
+    syncModalFieldsFromDOM();
+    state.modal.compressing = true;
+    render();
+    var chain = Promise.resolve();
+    files.forEach(function (file) {
+      chain = chain.then(function () {
+        return compressFile(file, 1280, 0.7).then(function (compressed) {
+          state.modal.photos = state.modal.photos || [];
+          state.modal.photos.push(compressed);
+        }).catch(function (err) { console.error('photo processing failed', err); });
+      });
+    });
+    chain.then(function () { state.modal.compressing = false; render(); });
+  }
+
+  function closeModal() { state.modal = null; render(); }
+
+  function buildContent() { return state.loading ? renderLoading() : (state.activeTab === 'list' ? renderListTab() : renderMemoriesTab()); }
+  // Re-render only the scrollable content so the header search keeps focus while typing.
+  function refreshContent() {
+    var c = document.getElementById('content');
+    if (c) { c.innerHTML = buildContent(); attachListeners(); }
+  }
+  function searchMatches(item) {
+    var q = state.searchQuery.trim().toLowerCase();
+    if (!q) return true;
+    return (item.text + ' ' + (item.note || '') + ' ' + (item.location || '')).toLowerCase().indexOf(q) !== -1;
+  }
+  function openSmartImport() { state.modal = { type: 'smartImport', stage: 'input', raw: '', parsed: [], focused: false, selectMode: false, selectedIdx: {} }; render(); }
+  function openAddModal(cat) {
+    var preset = cat !== undefined ? cat : ((state.activeCategory !== 'all' && state.activeCategory !== 'none') ? state.activeCategory : null);
+    state.modal = { type: 'add', view: null, category: normalizeCat(preset), focused: false };
+    render();
+  }
+
+  // ---------------- category management ----------------
+  // Return the first whole emoji (grapheme cluster), preserving variation
+  // selectors, skin-tone modifiers, and ZWJ sequences — so ✈️ stays ✈️, not ✈.
+  function firstEmoji(str) {
+    var s = (str || '').trim();
+    if (!s) return '';
+    try {
+      if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+        var seg = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+        var iter = seg.segment(s)[Symbol.iterator]();
+        var first = iter.next();
+        if (first && first.value) return first.value.segment;
+      }
+    } catch (e) {}
+    // Fallback: base code point plus any trailing modifiers / ZWJ-joined parts.
+    var arr = Array.from(s), out = arr[0] || '', i = 1;
+    while (i < arr.length) {
+      var cp = arr[i].codePointAt(0);
+      var prevArr = Array.from(out), prev = prevArr[prevArr.length - 1];
+      var prevCp = prev ? prev.codePointAt(0) : 0;
+      var join = cp === 0xFE0F || cp === 0xFE0E || cp === 0x200D ||
+        (cp >= 0x1F3FB && cp <= 0x1F3FF) ||
+        (cp >= 0x0300 && cp <= 0x036F) || (cp >= 0x20D0 && cp <= 0x20FF) ||
+        prevCp === 0x200D;
+      if (!join) break;
+      out += arr[i];
+      i++;
+    }
+    return out;
+  }
+
+  function saveCategoryDraft() {
+    var m = state.modal;
+    var labelEl = document.getElementById('catLabelInput');
+    var emojiEl = document.getElementById('catEmojiInput');
+    var label = (labelEl ? labelEl.value : (m.draftLabel || '')).trim();
+    var emoji = (emojiEl ? emojiEl.value : (m.draftEmoji || '')).trim() || '📌';
+    if (!label) { if (labelEl) labelEl.focus(); return; }
+    emoji = firstEmoji(emoji) || '📌';
+    if (m.catId) {
+      var existing = state.categories.find(function (c) { return c.id === m.catId; });
+      if (existing) { existing.label = label; existing.emoji = emoji; }
+    } else {
+      state.categories.push({ id: 'cat_' + genId(), label: label, emoji: emoji });
+    }
+    persistCategories();
+    state.modal = { type: 'manageCats', stage: 'list' };
+    render();
+  }
+  function deleteCategory(catId) {
+    var idx = state.categories.findIndex(function (c) { return c.id === catId; });
+    if (idx < 0) return;
+    state.items.forEach(function (it) { if (it.category === catId) it.category = null; });
+    state.categories.splice(idx, 1);
+    if (state.activeCategory === catId) state.activeCategory = 'all';
+    persistCategories();
+    persistItems();
+  }
+  function clearAllItems() {
+    var ids = state.items.map(function (i) { return i.id; });
+    state.items = [];
+    persistItems();
+    ids.forEach(function (id) { deletePhotosKey(id); });
+    state.activeTab = 'list';
+    state.activeCategory = 'all';
+    state.modal = null;
+    render();
+  }
+
+  // ---------------- render helpers ----------------
+  function googleGSvg() {
+    return '<svg class="gbtn-logo" width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">' +
+      '<path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>' +
+      '<path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>' +
+      '<path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>' +
+      '<path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>' +
+      '</svg>';
+  }
+  function renderAuthGate() {
+    var a = state.auth;
+    if (a.status === 'checking') {
+      return '<div class="auth-screen"><div class="spinner" style="border-color:rgba(255,255,255,0.4);border-top-color:white"></div></div>';
+    }
+    var body;
+    if (a.status === 'config') {
+      body = '<div class="auth-emoji">🛠️</div>' +
+        '<div class="auth-title">Almost there</div>' +
+        '<div class="auth-sub">This copy isn\u2019t connected to Supabase yet. Open <b>config.js</b> in the repo and paste in your project\u2019s URL and anon key (Supabase → Project Settings → API), then reload. Full steps are in the README.</div>' +
+        (a.error ? '<div class="auth-error">' + escapeHtml(a.error) + '</div>' : '');
+    } else if (a.status === 'denied') {
+      body = '<div class="auth-emoji">🙅</div>' +
+        '<div class="auth-title">This account isn\u2019t on the list</div>' +
+        '<div class="auth-sub">You\u2019re signed in as <b>' + escapeHtml(a.email || 'unknown') + '</b>, but this bucket list is private to two people. If this should be your account, add this exact email in the <b>allowed_users</b> table (see README), then try again.</div>' +
+        '<button class="btn-primary" id="authRetryBtn">Check again</button>' +
+        '<button class="btn-link" id="authSignOutBtn">Use a different Google account</button>';
+    } else if (a.status === 'error') {
+      body = '<div class="auth-emoji">📶</div>' +
+        '<div class="auth-title">Connection problem</div>' +
+        '<div class="auth-sub">Couldn\u2019t reach the server to verify your access.</div>' +
+        '<div class="auth-error">' + escapeHtml(a.error || '') + '</div>' +
+        '<button class="btn-primary" id="authRetryBtn">Try again</button>' +
+        '<button class="btn-link" id="authSignOutBtn">Sign out</button>';
+    } else { // locked
+      body = '<div class="auth-emoji">✨</div>' +
+        '<div class="auth-title">Our Bucket List</div>' +
+        '<div class="auth-sub">A private list for two. Sign in with the Google account that\u2019s on the list.</div>' +
+        '<div class="auth-error">' + escapeHtml(a.error || '') + '</div>' +
+        '<button class="gbtn" id="googleBtn"' + (a.busy ? ' disabled' : '') + '>' + googleGSvg() + '<span>' + (a.busy ? 'Opening Google…' : 'Continue with Google') + '</span></button>' +
+        '<p class="auth-note">Your device stays signed in until you log out from Settings.</p>';
+    }
+    return '<div class="auth-screen"><div class="auth-card">' + body + '</div></div>';
+  }
+  function attachAuthListeners() {
+    var googleBtn = document.getElementById('googleBtn');
+    if (googleBtn) googleBtn.onclick = signInWithGoogle;
+    var authSignOutBtn = document.getElementById('authSignOutBtn');
+    if (authSignOutBtn) authSignOutBtn.onclick = doLogout;
+    var authRetryBtn = document.getElementById('authRetryBtn');
+    if (authRetryBtn) authRetryBtn.onclick = function () {
+      if (state.auth.status === 'denied') { state.auth.status = 'checking'; render(); sb.auth.getSession().then(function (r) { var ses = r && r.data ? r.data.session : null; if (ses) afterSession(ses); else { state.auth.status = 'locked'; render(); } }); }
+      else initAuth();
+    };
+  }
+
+  function renderLoading() { return '<div class="loading-state"><div class="spinner"></div><p>Loading your list…</p></div>'; }
+
+  function renderFilterChips() {
+    var chips = [{ id: 'all', label: 'All', emoji: '' }].concat(state.categories);
+    if (state.items.some(function (i) { return !i.category; })) chips.push({ id: 'none', label: 'Uncategorized', emoji: '📥' });
+    return '<div class="chip-row filter">' + chips.map(function (c) {
+      return '<button class="chip' + (c.id === state.activeCategory ? ' active' : '') + '" data-action="filter-cat" data-cat="' + c.id + '">' + (c.emoji ? escapeHtml(c.emoji) + ' ' : '') + escapeHtml(c.label) + '</button>';
+    }).join('') + '</div>';
+  }
+  function renderPickerChips(selected) {
+    var noneChip = '<button class="chip' + (!selected ? ' active' : '') + '" data-action="pick-cat" data-cat="">None</button>';
+    return '<div class="chip-row picker">' + noneChip + state.categories.map(function (c) {
+      return '<button class="chip' + (c.id === selected ? ' active' : '') + '" data-action="pick-cat" data-cat="' + c.id + '">' + escapeHtml(c.emoji) + ' ' + escapeHtml(c.label) + '</button>';
+    }).join('') + '</div>';
+  }
+
+  function renderBatchBar() {
+    var n = Object.keys(state.selectedIds).length;
+    var chips = '<button class="chip" data-action="batch-cat" data-cat="">None</button>' +
+      state.categories.map(function (c) {
+        return '<button class="chip" data-action="batch-cat" data-cat="' + c.id + '">' + escapeHtml(c.emoji) + ' ' + escapeHtml(c.label) + '</button>';
+      }).join('');
+    return '<div class="batch-bar">' +
+      '<div class="batch-bar-top"><span id="batchCount">' + n + ' selected</span>' +
+      '<span><button class="batch-mini" id="batchSelectAll">All</button><button class="batch-mini" id="batchClear">Clear</button><button class="batch-cancel" id="batchCancel">Cancel</button></span></div>' +
+      '<div class="batch-chips">' + chips + '</div>' +
+    '</div>';
+  }
+
+  function renderEmptyState() {
+    return '' +
+      '<div class="empty-state">' +
+        '<div class="empty-emoji">🌟</div>' +
+        '<h2>Start your list</h2>' +
+        '<p>Tap ＋ to paste a whole list and auto-sort it, drop items into one category, or add them one at a time.</p>' +
+        '<button class="btn-primary" id="emptyAddBtn">＋ Add items</button>' +
+      '</div>';
+  }
+
+  function linkAnchor(url, cls, label) {
+    if (!url) return '';
+    return '<a class="' + cls + '" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">🔗' + (label ? ' <span>' + escapeHtml(label) + '</span>' : '') + '</a>';
+  }
+
+  function renderSelRow(item) {
+    var sel = !!state.selectedIds[item.id];
+    var ci = catInfo(item.category);
+    return '<div class="row sel-row' + (sel ? ' selected' : '') + '" data-action="sel-item" data-id="' + item.id + '">' +
+      '<span class="sel-indicator">' + (sel ? '✓' : '') + '</span>' +
+      (ci ? '<span class="row-cat" aria-hidden="true">' + escapeHtml(ci.emoji) + '</span>' : '') +
+      '<span class="row-text' + (item.status === 'done' ? ' done-text' : '') + '">' + escapeHtml(item.text) + '</span>' +
+    '</div>';
+  }
+  function renderTodoRow(item) {
+    if (state.selectMode) return renderSelRow(item);
+    return '' +
+      '<div class="row todo-row">' +
+        '<button class="checkbox" data-action="complete" data-id="' + item.id + '" aria-label="Mark complete"></button>' +
+        (catInfo(item.category) ? '<span class="row-cat" aria-hidden="true">' + escapeHtml(catInfo(item.category).emoji) + '</span>' : '') +
+        '<span class="row-main"><span class="row-text">' + escapeHtml(item.text) + '</span>' +
+        (item.note ? '<span class="row-note">📝 ' + escapeHtml(truncate(item.note, 70)) + '</span>' : '') +
+        (item.createdAt ? '<span class="row-added">' + formatAddedDate(item.createdAt) + '</span>' : '') + '</span>' +
+        (item.location ? '<a class="row-link" href="' + escapeHtml(locationUrl(item.location)) + '" target="_blank" rel="noopener noreferrer" aria-label="Open in Maps">📍</a>' : '') +
+        (item.link ? '<a class="row-link" href="' + escapeHtml(item.link) + '" target="_blank" rel="noopener noreferrer" aria-label="Open link">🔗</a>' : '') +
+        '<button class="row-icon-btn" data-action="edit" data-id="' + item.id + '" aria-label="Edit">✏️</button>' +
+        '<button class="row-icon-btn" data-action="delete-todo" data-id="' + item.id + '" aria-label="Delete">🗑️</button>' +
+      '</div>';
+  }
+  function renderDoneRow(item) {
+    if (state.selectMode) return renderSelRow(item);
+    return '' +
+      '<div class="row done-row" data-action="open-detail" data-id="' + item.id + '">' +
+        '<span class="checkbox checked">✓</span>' +
+        (catInfo(item.category) ? '<span class="row-cat" aria-hidden="true">' + escapeHtml(catInfo(item.category).emoji) + '</span>' : '') +
+        '<span class="row-text done-text">' + escapeHtml(item.text) + '</span>' +
+        (item.location ? '<a class="row-link" href="' + escapeHtml(locationUrl(item.location)) + '" target="_blank" rel="noopener noreferrer" aria-label="Open in Maps">📍</a>' : '') +
+        (item.link ? '<a class="row-link" href="' + escapeHtml(item.link) + '" target="_blank" rel="noopener noreferrer" aria-label="Open link">🔗</a>' : '') +
+        (item.thumbnail ? '<img class="row-thumb" src="' + item.thumbnail + '" alt="">' : '') +
+      '</div>';
+  }
+
+  function renderListTab() {
+    if (state.items.length === 0) return renderEmptyState();
+    var q = state.searchQuery.trim();
+    var visible = state.activeCategory === 'all' ? state.items : state.activeCategory === 'none' ? state.items.filter(function (i) { return !i.category; }) : state.items.filter(function (i) { return i.category === state.activeCategory; });
+    visible = visible.filter(searchMatches);
+    var todos = visible.filter(function (i) { return i.status === 'todo'; });
+    var done = visible.filter(function (i) { return i.status === 'done'; }).sort(function (a, b) { return new Date(b.completedAt) - new Date(a.completedAt); });
+    var scoped = q && state.activeCategory !== 'all';
+    var othersCount = scoped ? (state.items.filter(searchMatches).length - visible.length) : 0;
+    var othersHint = othersCount > 0 ? '<button class="btn-link" data-action="search-all">Show ' + othersCount + ' more match' + (othersCount === 1 ? '' : 'es') + ' in other categories</button>' : '';
+    var html = renderFilterChips();
+    if (q && !todos.length && !done.length) {
+      html += '<p class="empty-hint">No items match “' + escapeHtml(q) + '”' + (scoped ? ' in this category' : '') + '.</p>' + othersHint;
+      return html;
+    }
+    if (!state.selectMode && (todos.length || done.length)) html += '<div class="list-toolbar"><button class="select-toggle-btn" id="selectToggleBtn">☑︎ Select</button></div>';
+    html += '<div class="section-title">To do <span class="count-badge">' + todos.length + '</span></div>';
+    html += todos.length ? todos.map(renderTodoRow).join('') : '<p class="empty-hint">' + (q ? 'No to-dos match your search.' : 'Nothing here yet — tap + to add one.') + '</p>';
+    html += '<div class="section-title">Completed <span class="count-badge done">' + done.length + '</span></div>';
+    html += done.length ? done.map(renderDoneRow).join('') : '<p class="empty-hint">' + (q ? 'No completed items match your search.' : 'Complete an item to see it here.') + '</p>';
+    html += othersHint;
+    return html;
+  }
+
+  function renderMemoryCard(item) {
+    var ci = catInfo(item.category);
+    var photoBlock = '', metaLine = '';
+    if (item.thumbnail) {
+      photoBlock = '<div class="memory-photo-wrap">' +
+        '<img class="memory-photo" src="' + item.thumbnail + '" alt="">' +
+        (ci ? '<span class="memory-cat-stamp">' + escapeHtml(ci.emoji) + ' ' + escapeHtml(ci.label) + '</span>' : '') +
+        (item.completedAt ? '<span class="memory-date-stamp">' + formatDateStamp(item.completedAt) + '</span>' : '') +
+        '</div>';
+    } else {
+      var metaParts = (ci ? '<span class="memory-meta-cat">' + escapeHtml(ci.emoji) + ' ' + escapeHtml(ci.label) + '</span>' : '') +
+        (item.completedAt ? '<span class="memory-meta-date">' + formatDateStamp(item.completedAt) + '</span>' : '');
+      metaLine = metaParts ? '<div class="memory-meta">' + metaParts + '</div>' : '';
+    }
+    return '' +
+      '<div class="memory-card" data-action="open-detail" data-id="' + item.id + '">' +
+        photoBlock +
+        '<div class="memory-body">' +
+          metaLine +
+          '<div class="memory-title">' + escapeHtml(item.text) + '</div>' +
+          (item.note ? '<div class="memory-note">' + escapeHtml(truncate(item.note, 110)) + '</div>' : '<div class="memory-note memory-note-empty">No story added yet</div>') +
+          (item.location ? '<a class="memory-link" href="' + escapeHtml(locationUrl(item.location)) + '" target="_blank" rel="noopener noreferrer">📍 <span>' + escapeHtml(locationLabel(item.location)) + '</span></a>' : '') +
+          (item.link ? '<a class="memory-link" href="' + escapeHtml(item.link) + '" target="_blank" rel="noopener noreferrer">🔗 <span>' + escapeHtml(linkLabel(item.link)) + '</span></a>' : '') +
+        '</div>' +
+      '</div>';
+  }
+  function renderMemoriesTab() {
+    var q = state.searchQuery.trim();
+    var visible = state.activeCategory === 'all' ? state.items : state.activeCategory === 'none' ? state.items.filter(function (i) { return !i.category; }) : state.items.filter(function (i) { return i.category === state.activeCategory; });
+    visible = visible.filter(searchMatches);
+    var done = visible.filter(function (i) { return i.status === 'done'; }).sort(function (a, b) { return new Date(b.completedAt) - new Date(a.completedAt); });
+    var scoped = q && state.activeCategory !== 'all';
+    var othersCount = scoped ? (state.items.filter(function (i) { return i.status === 'done'; }).filter(searchMatches).length - done.length) : 0;
+    var othersHint = othersCount > 0 ? '<button class="btn-link" data-action="search-all">Show ' + othersCount + ' more match' + (othersCount === 1 ? '' : 'es') + ' in other categories</button>' : '';
+    var html = renderFilterChips();
+    if (!done.length) {
+      html += '<div class="empty-state"><div class="empty-emoji">📸</div><p>' + (q ? 'No memories match “' + escapeHtml(q) + '”' + (scoped ? ' in this category' : '') + '.' : (state.activeCategory === 'all' ? 'Your memories will show up here once you complete something on the list.' : 'No memories in this category yet.')) + '</p></div>' + othersHint;
+      return html;
+    }
+    html += '<div class="memory-feed">' + done.map(renderMemoryCard).join('') + '</div>';
+    html += othersHint;
+    return html;
+  }
+
+  function renderPhotoRow(photos, compressing) {
+    var html = '<label class="field-label">Photos (optional)</label><div class="photo-row">';
+    (photos || []).forEach(function (p, idx) {
+      html += '<div class="photo-thumb-wrap"><img src="' + p + '" class="photo-thumb"><button class="photo-remove" data-action="remove-photo" data-idx="' + idx + '" aria-label="Remove photo">✕</button></div>';
+    });
+    html += '<label class="photo-add-btn">📷<input type="file" id="photoInput" accept="image/*" multiple style="display:none"></label></div>';
+    if (compressing) html += '<p class="compressing-hint">Adding photos…</p>';
+    return html;
+  }
+
+  function renderAddModal(m) {
+    var title, body;
+    if (m.view === 'single') {
+      title = 'Add one item';
+      body = '<label class="field-label">Category</label>' + renderPickerChips(m.category) +
+        '<label class="field-label">Item</label>' +
+        '<input type="text" id="addItemInput" class="text-input" placeholder="e.g. Watch the Northern Lights">' +
+        '<label class="field-label">📍 Location (optional)</label>' +
+        '<input type="text" id="addLocationInput" class="text-input" placeholder="Place name, address, or map link">' +
+        '<label class="field-label">Link (optional)</label>' +
+        '<input type="url" inputmode="url" id="addLinkInput" class="text-input" placeholder="Website, trailer, article…">' +
+        '<label class="field-label">Notes (optional)</label>' +
+        '<textarea id="addNoteInput" class="note-textarea" placeholder="Details, ideas, who to go with…"></textarea>' +
+        '<button class="btn-primary" id="addItemBtn">Add item</button>' +
+        '<button class="btn-link" id="addBackLink">← Back</button>';
+    } else if (m.view === 'bulk') {
+      title = 'Paste into one category';
+      body = '<label class="field-label">Category</label>' + renderPickerChips(m.category) +
+        '<label class="field-label">Items — one per line</label>' +
+        '<textarea id="bulkInput" class="bulk-textarea" placeholder="Skydiving\nVisit Japan\nLearn to surf"></textarea>' +
+        '<p class="picker-hint">Everything you paste goes into the category picked above (or stays uncategorized on None). Bullets and checkboxes are cleaned up automatically.</p>' +
+        '<button class="btn-primary" id="bulkImportBtn">Add all</button>' +
+        '<button class="btn-link" id="addBackLink">← Back</button>';
+    } else {
+      title = 'Add to the list';
+      body = '<button class="settings-row" data-action="add-mode" data-mode="smart">✨<span>Paste &amp; auto-sort</span><span class="chev">›</span></button>' +
+        '<button class="settings-row" data-action="add-mode" data-mode="bulk">📋<span>Paste into one category</span><span class="chev">›</span></button>' +
+        '<button class="settings-row" data-action="add-mode" data-mode="single">➕<span>Add one item</span><span class="chev">›</span></button>';
+    }
+    return '<div class="sheet-header"><h2>' + title + '</h2><button class="icon-btn" data-action="close-modal">✕</button></div><div class="sheet-body">' + body + '</div>';
+  }
+
+  function renderCompleteModal(m) {
+    var item = state.items.find(function (i) { return i.id === m.itemId; });
+    if (!item) return '';
+    return '' +
+      '<div class="sheet-header"><h2>🎉 Mark complete</h2><button class="icon-btn" data-action="close-modal">✕</button></div>' +
+      '<div class="sheet-body">' +
+        '<div class="complete-item-title">' + (catInfo(item.category) ? escapeHtml(catInfo(item.category).emoji) + ' ' : '') + escapeHtml(item.text) + '</div>' +
+        '<label class="field-label">When</label>' +
+        '<input type="date" id="completeDate" class="text-input" value="' + (m.date || todayISO()) + '">' +
+        '<label class="field-label">Tell the story (optional)</label>' +
+        '<textarea id="completeNote" class="note-textarea" placeholder="How did it go?">' + escapeHtml(m.note || '') + '</textarea>' +
+        '<label class="field-label">📍 Location (optional)</label>' +
+        '<input type="text" id="completeLocation" class="text-input" placeholder="Place name, address, or map link" value="' + escapeHtml(m.location || '') + '">' +
+        '<label class="field-label">Link (optional)</label>' +
+        '<input type="url" inputmode="url" id="completeLink" class="text-input" placeholder="Website, trailer, article…" value="' + escapeHtml(m.link || '') + '">' +
+        renderPhotoRow(m.photos, m.compressing) +
+        '<button class="btn-primary" id="confirmCompleteBtn" ' + (m.compressing ? 'disabled' : '') + '>Complete it! 🎉</button>' +
+      '</div>';
+  }
+
+  function renderDetailModal(m) {
+    var item = state.items.find(function (i) { return i.id === m.itemId; });
+    if (!item) return '';
+    var ci = catInfo(item.category);
+    var photos = m.photos || [];
+    var body;
+    if (m.editing) {
+      body = '' +
+        '<label class="field-label">Category</label>' + renderPickerChips(m.category !== undefined ? m.category : item.category) +
+        '<label class="field-label">When</label>' +
+        '<input type="date" id="editDate" class="text-input" value="' + (m.date || toISODateInputValue(item.completedAt)) + '">' +
+        '<label class="field-label">The story</label>' +
+        '<textarea id="editNote" class="note-textarea">' + escapeHtml(m.note !== undefined ? m.note : (item.note || '')) + '</textarea>' +
+        '<label class="field-label">📍 Location (optional)</label>' +
+        '<input type="text" id="editLocation" class="text-input" placeholder="Place name, address, or map link" value="' + escapeHtml(m.location !== undefined ? m.location : (item.location || '')) + '">' +
+        '<label class="field-label">Link (optional)</label>' +
+        '<input type="url" inputmode="url" id="editLink" class="text-input" placeholder="Website, trailer, article…" value="' + escapeHtml(m.link !== undefined ? m.link : (item.link || '')) + '">' +
+        renderPhotoRow(photos, m.compressing) +
+        '<button class="btn-primary" id="saveDetailBtn" ' + (m.compressing ? 'disabled' : '') + '>Save changes</button>';
+    } else {
+      body = '' +
+        '<div class="detail-date">' + (ci ? escapeHtml(ci.emoji) + ' ' + escapeHtml(ci.label) + ' · ' : '') + formatDate(item.completedAt) + (item.createdAt ? ' · ' + formatAddedDate(item.createdAt).toLowerCase() : '') + '</div>' +
+        (m.loadingPhotos ? '<p class="photos-loading">Loading photos…</p>' : (photos.length ? '<div class="photo-gallery">' + photos.map(function (p) { return '<img src="' + p + '" class="gallery-photo">'; }).join('') + '</div>' : '')) +
+        (item.location ? '<div><a class="detail-link" href="' + escapeHtml(locationUrl(item.location)) + '" target="_blank" rel="noopener noreferrer">📍 <span>' + escapeHtml(locationLabel(item.location)) + '</span></a></div>' : '') +
+        (item.link ? '<div><a class="detail-link" href="' + escapeHtml(item.link) + '" target="_blank" rel="noopener noreferrer">🔗 <span>' + escapeHtml(linkLabel(item.link)) + '</span></a></div>' : '') +
+        (item.note ? '<p class="detail-note">' + escapeHtml(item.note) + '</p>' : '<p class="detail-note-empty">No story added yet.</p>') +
+        '<div class="detail-actions">' +
+          '<button class="btn-secondary" data-action="edit-detail">✏️ Edit</button>' +
+          '<button class="btn-secondary" data-action="uncomplete">↩️ Move to To-Do</button>' +
+        '</div>' +
+        '<button class="btn-danger" data-action="delete-memory">Delete this item</button>';
+    }
+    return '<div class="sheet-header"><h2>' + escapeHtml(item.text) + '</h2><button class="icon-btn" data-action="close-modal">✕</button></div><div class="sheet-body">' + body + '</div>';
+  }
+
+  function renderEditTextModal(m) {
+    var item = state.items.find(function (i) { return i.id === m.itemId; });
+    if (!item) return '';
+    return '' +
+      '<div class="sheet-header"><h2>Edit item</h2><button class="icon-btn" data-action="close-modal">✕</button></div>' +
+      '<div class="sheet-body">' +
+        '<label class="field-label">Category</label>' + renderPickerChips(m.category !== undefined ? m.category : item.category) +
+        '<label class="field-label">Item</label>' +
+        '<input type="text" id="editTextInput" class="text-input" value="' + escapeHtml(item.text) + '">' +
+        '<label class="field-label">📍 Location (optional)</label>' +
+        '<input type="text" id="editTextLocation" class="text-input" placeholder="Place name, address, or map link" value="' + escapeHtml(item.location || '') + '">' +
+        '<label class="field-label">Link (optional)</label>' +
+        '<input type="url" inputmode="url" id="editTextLink" class="text-input" placeholder="Website, trailer, article…" value="' + escapeHtml(item.link || '') + '">' +
+        '<label class="field-label">Notes (optional)</label>' +
+        '<textarea id="editTextNote" class="note-textarea" placeholder="Details, ideas, who to go with…">' + escapeHtml(item.note || '') + '</textarea>' +
+        '<button class="btn-primary" id="saveEditTextBtn">Save</button>' +
+      '</div>';
+  }
+
+  function renderConfirmModal(m) {
+    return '' +
+      '<div class="sheet-header"><h2>' + escapeHtml(m.title) + '</h2></div>' +
+      '<div class="sheet-body">' +
+        '<p class="confirm-message">' + escapeHtml(m.message) + '</p>' +
+        '<div class="confirm-actions">' +
+          '<button class="btn-secondary" data-action="cancel-confirm">Cancel</button>' +
+          '<button class="btn-danger" data-action="confirm-yes">' + escapeHtml(m.confirmLabel || 'Delete') + '</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function renderSmartCatBtn(idx, catId, activeId) {
+    var c = catInfo(catId);
+    return '<button class="smart-cat-btn' + (catId === activeId ? ' active' : '') + '" data-action="smart-set-cat" data-idx="' + idx + '" data-cat="' + catId + '" aria-label="' + escapeHtml(c.label) + '">' + escapeHtml(c.emoji) + '<span class="lbl">' + escapeHtml(c.label) + '</span></button>';
+  }
+  function renderSmartImportModal(m) {
+    var header = '<div class="sheet-header"><h2>Auto-sort your list</h2><button class="icon-btn" data-action="close-modal">✕</button></div>';
+    if (m.stage !== 'preview') {
+      return header + '<div class="sheet-body">' +
+        '<p class="smart-hint">Paste your whole list — keep the category headings (like “Food we want to eat”) above their items. Bullets and checkboxes get cleaned up. Anything without a clear match stays uncategorized — assign it on the next screen, or don’t.</p>' +
+        '<textarea id="smartInput" class="bulk-textarea" style="min-height:180px" placeholder="Food we want to eat\n  Omakase in the city\n  Dim sum crawl\n\nGames we want to play\n  Finish Elden Ring">' + escapeHtml(m.raw || '') + '</textarea>' +
+        '<button class="btn-primary" id="smartPreviewBtn">Sort it →</button>' +
+        '</div>';
+    }
+    var parsed = m.parsed || [];
+    var bodyInner;
+    if (!parsed.length) {
+      bodyInner = '<p class="smart-empty">No items found. Go back and paste your list — one item per line, with a heading above each group.</p><button class="btn-link" id="smartBackLink">← Back to paste</button>';
+    } else {
+      var counts = {}, noneCount = 0;
+      state.categories.forEach(function (c) { counts[c.id] = 0; });
+      parsed.forEach(function (p) { if (p.category) counts[p.category] = (counts[p.category] || 0) + 1; else noneCount++; });
+      var summary = '<div class="smart-summary"><span class="total">' + parsed.length + ' item' + (parsed.length === 1 ? '' : 's') + '</span>' +
+        state.categories.map(function (c) { return '<span>' + escapeHtml(c.emoji) + ' ' + (counts[c.id] || 0) + '</span>'; }).join('') +
+        (noneCount ? '<span>📥 ' + noneCount + '</span>' : '') + '</div>';
+      var selMode = !!m.selectMode;
+      var toolbar = '<div class="smart-toolbar"><button class="select-toggle-btn" id="smartSelectToggle">' + (selMode ? 'Done selecting' : '☑︎ Select multiple') + '</button></div>';
+      var setAllBar = '';
+      if (!selMode) {
+        setAllBar = '<div class="smart-setall"><span class="smart-setall-label">Put everything in one category:</span>' +
+          '<div class="batch-chips"><button class="chip" data-action="smart-set-all" data-cat="">📥 None</button>' +
+          state.categories.map(function (c) { return '<button class="chip" data-action="smart-set-all" data-cat="' + c.id + '">' + escapeHtml(c.emoji) + ' ' + escapeHtml(c.label) + '</button>'; }).join('') +
+          '</div></div>';
+      }
+      var selBar = '';
+      if (selMode) {
+        var selCount = Object.keys(m.selectedIdx || {}).length;
+        selBar = '<div class="smart-select-bar">' +
+          '<div class="batch-bar-top"><span id="smartBatchCount">' + selCount + ' selected</span>' +
+          '<span><button class="batch-mini" id="smartSelAll">All</button><button class="batch-mini" id="smartSelClear">Clear</button></span></div>' +
+          '<div class="batch-chips"><button class="chip" data-action="smart-batch-cat" data-cat="">None</button>' +
+          state.categories.map(function (c) { return '<button class="chip" data-action="smart-batch-cat" data-cat="' + c.id + '">' + escapeHtml(c.emoji) + ' ' + escapeHtml(c.label) + '</button>'; }).join('') +
+          '</div></div>';
+      }
+      var rows = '<div class="smart-list">' + parsed.map(function (p, idx) {
+        if (selMode) {
+          var sel = !!(m.selectedIdx && m.selectedIdx[idx]);
+          var ci = catInfo(p.category);
+          return '<div class="smart-row sel-row' + (sel ? ' selected' : '') + '" data-action="smart-sel" data-idx="' + idx + '">' +
+            '<span class="sel-indicator">' + (sel ? '✓' : '') + '</span>' +
+            '<div class="smart-row-text">' + escapeHtml(p.text) + '</div>' +
+            '<span class="smart-cat-tag" data-role="cat-tag">' + (ci ? escapeHtml(ci.emoji) + ' ' + escapeHtml(ci.label) : '📥 None') + '</span>' +
+          '</div>';
+        }
+        return '<div class="smart-row"><div class="smart-row-text">' + escapeHtml(p.text) + '</div><div class="smart-cat-picker">' +
+          state.categories.map(function (c) { return renderSmartCatBtn(idx, c.id, p.category); }).join('') +
+          '<button class="smart-cat-btn' + (!p.category ? ' active' : '') + '" data-action="smart-set-cat" data-idx="' + idx + '" data-cat="" aria-label="No category">–<span class="lbl">None</span></button>' +
+          '</div></div>';
+      }).join('') + '</div>';
+      bodyInner = '<p class="smart-hint">' + (selMode ? 'Tap items to select them, then tap a category above to apply it to all of them.' : 'Here’s how it sorted. Tap a category on any item to change it — or use “Put everything in one category” below.') + '</p>' + summary + toolbar + setAllBar + selBar + rows +
+        '<button class="btn-primary" id="smartCommitBtn">Add ' + parsed.length + ' item' + (parsed.length === 1 ? '' : 's') + '</button>' +
+        '<button class="btn-link" id="smartBackLink">← Back to paste</button>';
+    }
+    return header + '<div class="sheet-body">' + bodyInner + '</div>';
+  }
+
+  function renderManageCatsModal(m) {
+    var header = '<div class="sheet-header"><h2>' + (m.stage === 'form' ? (m.catId ? 'Edit category' : 'New category') : 'Categories') + '</h2><button class="icon-btn" data-action="close-modal">✕</button></div>';
+    if (m.stage === 'form') {
+      var draftEmoji = m.draftEmoji || '📌';
+      var grid = '<div class="emoji-grid">' + EMOJI_PRESETS.map(function (e) {
+        return '<button class="emoji-opt' + (e === draftEmoji ? ' active' : '') + '" data-action="pick-emoji" data-emoji="' + escapeHtml(e) + '">' + escapeHtml(e) + '</button>';
+      }).join('') + '</div>';
+      return header + '<div class="sheet-body">' +
+        '<label class="field-label">Icon</label>' +
+        '<input type="text" id="catEmojiInput" class="text-input" maxlength="8" value="' + escapeHtml(draftEmoji) + '">' +
+        '<p class="picker-hint">Tap the box and type or paste any emoji, or pick one below.</p>' +
+        grid +
+        '<label class="field-label">Name</label>' +
+        '<input type="text" id="catLabelInput" class="text-input" placeholder="e.g. Places to go" value="' + escapeHtml(m.draftLabel || '') + '">' +
+        '<button class="btn-primary" id="catSaveBtn">' + (m.catId ? 'Save' : 'Add category') + '</button>' +
+        '<button class="btn-link" id="catBackLink">← Back</button>' +
+        '</div>';
+    }
+    var list = state.categories.length ? state.categories.map(function (c) {
+      return '<div class="cat-manage-row">' +
+        '<span class="cat-manage-emoji">' + escapeHtml(c.emoji) + '</span>' +
+        '<span class="cat-manage-label">' + escapeHtml(c.label) + '</span>' +
+        '<button class="row-icon-btn" data-action="edit-cat" data-id="' + c.id + '" aria-label="Edit category">✏️</button>' +
+        '<button class="row-icon-btn" data-action="delete-cat" data-id="' + c.id + '" aria-label="Delete category">🗑️</button>' +
+      '</div>';
+    }).join('') : '<p class="smart-empty">No categories — the list works fine without them. Add one below if you want grouping.</p>';
+    return header + '<div class="sheet-body">' +
+      '<p class="smart-hint">Rename a category, change its icon, or add your own. Categories are optional — deleting one just leaves its items uncategorized.</p>' +
+      list +
+      '<button class="cat-add-btn" id="catAddBtn">＋ Add category</button>' +
+      '<button class="btn-link" id="catsToSettingsLink">← Back to settings</button>' +
+      '</div>';
+  }
+
+  function renderSettingsModal() {
+    var n = state.items.length;
+    return '<div class="sheet-header"><h2>Settings</h2><button class="icon-btn" data-action="close-modal">✕</button></div>' +
+      '<div class="sheet-body">' +
+        '<button class="settings-row" data-action="open-cats">🏷️<span>Categories</span><span class="chev">›</span></button>' +
+        '<button class="settings-row" id="settingsRefreshBtn">🔄<span>Refresh list</span></button>' +
+        '<div class="settings-row" style="cursor:default">👤<span>' + escapeHtml(state.auth.email || 'Signed in with Google') + '</span></div>' +
+        '<button class="settings-row" id="logoutBtn">🚪<span>Sign out on this device</span></button>' +
+        (n ? '<button class="btn-danger" id="clearAllBtn">Clear entire list (' + n + ' item' + (n === 1 ? '' : 's') + ')</button>' : '') +
+      '</div>';
+  }
+
+  function renderModal() {
+    if (!state.modal) return '';
+    var t = state.modal.type, inner = '';
+    if (t === 'add') inner = renderAddModal(state.modal);
+    else if (t === 'settings') inner = renderSettingsModal();
+    else if (t === 'smartImport') inner = renderSmartImportModal(state.modal);
+    else if (t === 'manageCats') inner = renderManageCatsModal(state.modal);
+    else if (t === 'complete') inner = renderCompleteModal(state.modal);
+    else if (t === 'detail') inner = renderDetailModal(state.modal);
+    else if (t === 'editText') inner = renderEditTextModal(state.modal);
+    else if (t === 'confirm') inner = renderConfirmModal(state.modal);
+    return '<div class="overlay" id="modalOverlay"><div class="sheet">' + inner + '</div></div>';
+  }
+
+  // ---------------- main render ----------------
+  function render() {
+    var app = document.getElementById('app');
+    if (state.auth.status !== 'unlocked') { app.innerHTML = renderAuthGate(); attachAuthListeners(); return; }
+    if (state.activeCategory === 'none' && !state.items.some(function (i) { return !i.category; })) state.activeCategory = 'all';
+    var total = state.items.length;
+    var doneCount = state.items.filter(function (i) { return i.status === 'done'; }).length;
+    var pct = total ? Math.round((doneCount / total) * 100) : 0;
+    var contentHtml = buildContent();
+
+    app.innerHTML = '' +
+      '<div class="header">' +
+        '<div class="header-top"><h1>✨ Our Bucket List</h1>' +
+          '<div class="header-search">' +
+            '<input type="search" id="searchInput" class="search-input" placeholder="Search" autocomplete="off" value="' + escapeHtml(state.searchQuery) + '">' +
+            '<button class="search-clear" id="searchClearBtn" aria-label="Clear search"' + (state.searchQuery ? '' : ' style="display:none"') + '>✕</button>' +
+          '</div>' +
+          '<button class="icon-btn" id="settingsBtn" aria-label="Settings">⚙️</button>' +
+        '</div>' +
+        '<div class="progress-row"><div class="progress-track"><div class="progress-fill" style="width:' + pct + '%"></div></div>' +
+        '<span class="progress-label">' + doneCount + ' of ' + total + ' done</span></div>' +
+      '</div>' +
+      '<div class="content' + (state.selectMode && state.activeTab === 'list' ? ' select-pad' : '') + '" id="content">' + contentHtml + '</div>' +
+      (state.selectMode && state.activeTab === 'list' ? renderBatchBar() : (state.activeTab === 'list' && state.items.length === 0 ? '' : '<div class="fab-wrapper"><button class="fab" id="fabBtn" aria-label="Add item">+</button></div>')) +
+      '<nav class="tabbar">' +
+        '<button class="tab-btn ' + (state.activeTab === 'list' ? 'active' : '') + '" data-tab="list"><span class="tab-icon">📋</span><span>List</span></button>' +
+        '<button class="tab-btn ' + (state.activeTab === 'memories' ? 'active' : '') + '" data-tab="memories"><span class="tab-icon">📸</span><span>Memories</span></button>' +
+      '</nav>' +
+      renderModal();
+
+    attachListeners();
+  }
+
+  // ---------------- listeners ----------------
+  function attachListeners() {
+    var searchInput = document.getElementById('searchInput');
+    var searchClearBtn = document.getElementById('searchClearBtn');
+    if (searchInput) {
+      searchInput.oninput = function () {
+        state.searchQuery = searchInput.value;
+        if (searchClearBtn) searchClearBtn.style.display = searchInput.value ? 'block' : 'none';
+        refreshContent();
+      };
+      searchInput.onkeydown = function (e) { if (e.key === 'Enter') searchInput.blur(); };
+    }
+    if (searchClearBtn) searchClearBtn.onclick = function () {
+      state.searchQuery = '';
+      if (searchInput) { searchInput.value = ''; searchInput.focus(); }
+      searchClearBtn.style.display = 'none';
+      refreshContent();
+    };
+
+    var settingsBtn = document.getElementById('settingsBtn');
+    if (settingsBtn) settingsBtn.onclick = function () { state.modal = { type: 'settings' }; render(); };
+    var openCatsBtn = document.querySelector('[data-action="open-cats"]');
+    if (openCatsBtn) openCatsBtn.onclick = function () { state.modal = { type: 'manageCats', stage: 'list' }; render(); };
+    var settingsRefreshBtn = document.getElementById('settingsRefreshBtn');
+    if (settingsRefreshBtn) settingsRefreshBtn.onclick = function () {
+      state.modal = null;
+      if (hasPendingSync()) { retrySync(); render(); } else { loadAll(); }
+    };
+    var catsToSettingsLink = document.getElementById('catsToSettingsLink');
+    if (catsToSettingsLink) catsToSettingsLink.onclick = function () { state.modal = { type: 'settings' }; render(); };
+    var logoutBtn = document.getElementById('logoutBtn');
+    if (logoutBtn) logoutBtn.onclick = function () {
+      state.modal = { type: 'confirm', title: 'Sign out on this device?', message: 'You\'ll sign back in with Google next time. The list itself stays saved for both of you.', confirmLabel: 'Sign out', previousModal: { type: 'settings' }, onConfirm: doLogout };
+      render();
+    };
+
+    var fabBtn = document.getElementById('fabBtn');
+    if (fabBtn) fabBtn.onclick = function () { openAddModal(); };
+
+    Array.prototype.forEach.call(document.querySelectorAll('.tab-btn'), function (btn) {
+      btn.onclick = function () { state.activeTab = btn.dataset.tab; state.selectMode = false; state.selectedIds = {}; render(); };
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="filter-cat"]'), function (btn) {
+      btn.onclick = function () { state.activeCategory = btn.dataset.cat; render(); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="search-all"]'), function (btn) {
+      btn.onclick = function () { state.activeCategory = 'all'; refreshContent(); };
+    });
+
+    // Batch select (main list)
+    var selectToggleBtn = document.getElementById('selectToggleBtn');
+    if (selectToggleBtn) selectToggleBtn.onclick = function () { state.selectMode = true; state.selectedIds = {}; render(); };
+    var batchCancel = document.getElementById('batchCancel');
+    if (batchCancel) batchCancel.onclick = function () { state.selectMode = false; state.selectedIds = {}; render(); };
+    function updateBatchCount() {
+      var el = document.getElementById('batchCount');
+      if (el) el.textContent = Object.keys(state.selectedIds).length + ' selected';
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="sel-item"]'), function (row) {
+      row.onclick = function () {
+        var id = row.dataset.id;
+        var ind = row.querySelector('.sel-indicator');
+        if (state.selectedIds[id]) { delete state.selectedIds[id]; row.classList.remove('selected'); if (ind) ind.textContent = ''; }
+        else { state.selectedIds[id] = true; row.classList.add('selected'); if (ind) ind.textContent = '✓'; }
+        updateBatchCount();
+      };
+    });
+    var batchSelectAll = document.getElementById('batchSelectAll');
+    if (batchSelectAll) batchSelectAll.onclick = function () {
+      Array.prototype.forEach.call(document.querySelectorAll('[data-action="sel-item"]'), function (row) {
+        state.selectedIds[row.dataset.id] = true;
+        row.classList.add('selected');
+        var ind = row.querySelector('.sel-indicator'); if (ind) ind.textContent = '✓';
+      });
+      updateBatchCount();
+    };
+    var batchClear = document.getElementById('batchClear');
+    if (batchClear) batchClear.onclick = function () {
+      state.selectedIds = {};
+      Array.prototype.forEach.call(document.querySelectorAll('[data-action="sel-item"]'), function (row) {
+        row.classList.remove('selected');
+        var ind = row.querySelector('.sel-indicator'); if (ind) ind.textContent = '';
+      });
+      updateBatchCount();
+    };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="batch-cat"]'), function (btn) {
+      btn.onclick = function () {
+        var ids = Object.keys(state.selectedIds);
+        if (!ids.length) return;
+        var cat = normalizeCat(btn.dataset.cat);
+        state.items.forEach(function (it) { if (state.selectedIds[it.id]) it.category = cat; });
+        persistItems();
+        state.selectMode = false;
+        state.selectedIds = {};
+        render();
+      };
+    });
+
+    // Category pickers on add/edit modals — no full re-render, so typed text survives.
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="pick-cat"]'), function (btn) {
+      btn.onclick = function () {
+        if (state.modal) state.modal.category = btn.dataset.cat || null;
+        var row = btn.closest('.chip-row');
+        if (row) Array.prototype.forEach.call(row.querySelectorAll('.chip'), function (c) { c.classList.remove('active'); });
+        btn.classList.add('active');
+      };
+    });
+
+    // Prevent link taps from also triggering the row/card handler.
+    Array.prototype.forEach.call(document.querySelectorAll('.row-link, .memory-link'), function (a) {
+      a.addEventListener('click', function (e) { e.stopPropagation(); });
+    });
+
+    var emptyAddBtn = document.getElementById('emptyAddBtn');
+    if (emptyAddBtn) emptyAddBtn.onclick = function () { openAddModal(); };
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="complete"]'), function (btn) {
+      btn.onclick = function (e) { e.stopPropagation(); openCompleteModal(btn.dataset.id); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="edit"]'), function (btn) {
+      btn.onclick = function (e) {
+        e.stopPropagation();
+        var item = state.items.find(function (i) { return i.id === btn.dataset.id; });
+        state.modal = { type: 'editText', itemId: btn.dataset.id, category: item ? item.category : null };
+        render();
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="delete-todo"]'), function (btn) {
+      btn.onclick = function (e) {
+        e.stopPropagation();
+        var id = btn.dataset.id;
+        state.modal = { type: 'confirm', title: 'Delete this item?', message: 'It will be removed from your list for good.', onConfirm: function () { deleteItem(id); } };
+        render();
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="open-detail"]'), function (el) {
+      el.onclick = function () { openDetail(el.dataset.id); };
+    });
+
+    var overlay = document.getElementById('modalOverlay');
+    if (overlay) overlay.onclick = function (e) { if (e.target.id === 'modalOverlay') closeModal(); };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="close-modal"]'), function (btn) { btn.onclick = closeModal; });
+
+    // Add modal (single item) — closes on add and jumps to the new item's category.
+    var addItemInput = document.getElementById('addItemInput');
+    var addItemBtn = document.getElementById('addItemBtn');
+    if (addItemBtn && addItemInput) {
+      var doAdd = function () {
+        var val = addItemInput.value.trim();
+        if (!val) { addItemInput.focus(); return; }
+        var linkEl = document.getElementById('addLinkInput');
+        var noteEl = document.getElementById('addNoteInput');
+        var locEl = document.getElementById('addLocationInput');
+        var cat = state.modal ? state.modal.category : null;
+        var item = addItem(val, cat, linkEl ? linkEl.value : '', noteEl ? noteEl.value : '', locEl ? locEl.value : '');
+        state.modal = null;
+        state.activeTab = 'list';
+        if (item) state.activeCategory = item.category || 'all';
+        render();
+      };
+      addItemBtn.onclick = doAdd;
+      addItemInput.onkeydown = function (e) { if (e.key === 'Enter') doAdd(); };
+      if (state.modal && !state.modal.focused) { state.modal.focused = true; addItemInput.focus(); }
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="add-mode"]'), function (btn) {
+      btn.onclick = function () {
+        var mode = btn.dataset.mode;
+        if (mode === 'smart') { openSmartImport(); return; }
+        state.modal.view = mode;
+        state.modal.focused = false;
+        render();
+      };
+    });
+    var addBackLink = document.getElementById('addBackLink');
+    if (addBackLink) addBackLink.onclick = function () { state.modal.view = null; state.modal.focused = false; render(); };
+    var bulkImportBtn = document.getElementById('bulkImportBtn');
+    if (bulkImportBtn) bulkImportBtn.onclick = function () { doBulkImport(document.getElementById('bulkInput').value, state.modal ? state.modal.category : null); };
+
+    // Smart import
+    var smartPreviewBtn = document.getElementById('smartPreviewBtn');
+    if (smartPreviewBtn) smartPreviewBtn.onclick = function () {
+      var input = document.getElementById('smartInput');
+      var raw = input ? input.value : '';
+      state.modal.raw = raw;
+      state.modal.parsed = parseStructuredList(raw);
+      state.modal.stage = 'preview';
+      state.modal.selectMode = false;
+      state.modal.selectedIdx = {};
+      render();
+    };
+    var smartBackLink = document.getElementById('smartBackLink');
+    if (smartBackLink) smartBackLink.onclick = function () { state.modal.stage = 'input'; state.modal.focused = false; render(); };
+    var smartCommitBtn = document.getElementById('smartCommitBtn');
+    if (smartCommitBtn) smartCommitBtn.onclick = function () {
+      commitParsedItems(state.modal.parsed || []);
+      state.modal = null; state.activeTab = 'list'; state.activeCategory = 'all'; render();
+    };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="smart-set-cat"]'), function (btn) {
+      btn.onclick = function () {
+        var idx = parseInt(btn.dataset.idx, 10);
+        if (state.modal && state.modal.parsed && state.modal.parsed[idx]) state.modal.parsed[idx].category = btn.dataset.cat || null;
+        var picker = btn.closest('.smart-cat-picker');
+        if (picker) Array.prototype.forEach.call(picker.querySelectorAll('.smart-cat-btn'), function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+      };
+    });
+
+    // Batch select (import preview)
+    var smartSelectToggle = document.getElementById('smartSelectToggle');
+    if (smartSelectToggle) smartSelectToggle.onclick = function () {
+      state.modal.selectMode = !state.modal.selectMode;
+      state.modal.selectedIdx = {};
+      render();
+    };
+    function smartUpdateCount() {
+      var el = document.getElementById('smartBatchCount');
+      if (el) el.textContent = Object.keys((state.modal && state.modal.selectedIdx) || {}).length + ' selected';
+    }
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="smart-sel"]'), function (row) {
+      row.onclick = function () {
+        var idx = row.dataset.idx;
+        state.modal.selectedIdx = state.modal.selectedIdx || {};
+        var ind = row.querySelector('.sel-indicator');
+        if (state.modal.selectedIdx[idx]) { delete state.modal.selectedIdx[idx]; row.classList.remove('selected'); if (ind) ind.textContent = ''; }
+        else { state.modal.selectedIdx[idx] = true; row.classList.add('selected'); if (ind) ind.textContent = '✓'; }
+        smartUpdateCount();
+      };
+    });
+    var smartSelAll = document.getElementById('smartSelAll');
+    if (smartSelAll) smartSelAll.onclick = function () {
+      state.modal.selectedIdx = {};
+      Array.prototype.forEach.call(document.querySelectorAll('[data-action="smart-sel"]'), function (row) {
+        state.modal.selectedIdx[row.dataset.idx] = true;
+        row.classList.add('selected');
+        var ind = row.querySelector('.sel-indicator'); if (ind) ind.textContent = '✓';
+      });
+      smartUpdateCount();
+    };
+    var smartSelClear = document.getElementById('smartSelClear');
+    if (smartSelClear) smartSelClear.onclick = function () {
+      state.modal.selectedIdx = {};
+      Array.prototype.forEach.call(document.querySelectorAll('[data-action="smart-sel"]'), function (row) {
+        row.classList.remove('selected');
+        var ind = row.querySelector('.sel-indicator'); if (ind) ind.textContent = '';
+      });
+      smartUpdateCount();
+    };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="smart-batch-cat"]'), function (btn) {
+      btn.onclick = function () {
+        var idxs = Object.keys((state.modal && state.modal.selectedIdx) || {});
+        if (!idxs.length) return;
+        var cat = normalizeCat(btn.dataset.cat);
+        var ci = catInfo(cat);
+        idxs.forEach(function (k) {
+          var i = parseInt(k, 10);
+          if (state.modal.parsed[i]) state.modal.parsed[i].category = cat;
+          var row = document.querySelector('[data-action="smart-sel"][data-idx="' + i + '"]');
+          if (row) {
+            var tag = row.querySelector('[data-role="cat-tag"]');
+            if (tag) tag.textContent = ci ? ci.emoji + ' ' + ci.label : '📥 None';
+            row.classList.remove('selected');
+            var ind = row.querySelector('.sel-indicator'); if (ind) ind.textContent = '';
+          }
+        });
+        state.modal.selectedIdx = {};
+        smartUpdateCount();
+      };
+    });
+    var smartInput = document.getElementById('smartInput');
+    if (smartInput && state.modal && !state.modal.focused) { state.modal.focused = true; smartInput.focus(); }
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="smart-set-all"]'), function (btn) {
+      btn.onclick = function () {
+        if (!state.modal || !state.modal.parsed) return;
+        var cat = normalizeCat(btn.dataset.cat);
+        state.modal.parsed.forEach(function (p) { p.category = cat; });
+        render();
+      };
+    });
+
+    // Manage categories
+    var catAddBtn = document.getElementById('catAddBtn');
+    if (catAddBtn) catAddBtn.onclick = function () { state.modal = { type: 'manageCats', stage: 'form', catId: null, draftLabel: '', draftEmoji: '📌' }; render(); };
+    var clearAllBtn = document.getElementById('clearAllBtn');
+    if (clearAllBtn) clearAllBtn.onclick = function () {
+      var n = state.items.length;
+      state.modal = {
+        type: 'confirm',
+        title: 'Clear the whole list?',
+        message: 'All ' + n + ' item' + (n === 1 ? '' : 's') + ' — including stories and photos — will be deleted for both of you. Your categories stay.',
+        confirmLabel: 'Clear all',
+        previousModal: { type: 'settings' },
+        onConfirm: clearAllItems
+      };
+      render();
+    };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="edit-cat"]'), function (btn) {
+      btn.onclick = function () {
+        var c = state.categories.find(function (x) { return x.id === btn.dataset.id; });
+        if (!c) return;
+        state.modal = { type: 'manageCats', stage: 'form', catId: c.id, draftLabel: c.label, draftEmoji: c.emoji };
+        render();
+      };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="delete-cat"]'), function (btn) {
+      btn.onclick = function () {
+        var id = btn.dataset.id;
+        var count = state.items.filter(function (it) { return it.category === id; }).length;
+        var msg = count ? (count + ' item' + (count === 1 ? '' : 's') + ' will become uncategorized — nothing gets deleted.') : 'This category has no items.';
+        state.modal = { type: 'confirm', title: 'Delete category?', message: msg, confirmLabel: 'Delete', previousModal: { type: 'manageCats', stage: 'list' }, onConfirm: function () { deleteCategory(id); state.modal = { type: 'manageCats', stage: 'list' }; render(); } };
+        render();
+      };
+    });
+    var catSaveBtn = document.getElementById('catSaveBtn');
+    if (catSaveBtn) catSaveBtn.onclick = saveCategoryDraft;
+    var catBackLink = document.getElementById('catBackLink');
+    if (catBackLink) catBackLink.onclick = function () { state.modal = { type: 'manageCats', stage: 'list' }; render(); };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="pick-emoji"]'), function (btn) {
+      btn.onclick = function () {
+        var emoji = btn.dataset.emoji;
+        if (state.modal) state.modal.draftEmoji = emoji;
+        var input = document.getElementById('catEmojiInput');
+        if (input) input.value = emoji;
+        var grid = btn.closest('.emoji-grid');
+        if (grid) Array.prototype.forEach.call(grid.querySelectorAll('.emoji-opt'), function (b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+      };
+    });
+
+    // Complete modal
+    var confirmCompleteBtn = document.getElementById('confirmCompleteBtn');
+    if (confirmCompleteBtn) confirmCompleteBtn.onclick = confirmComplete;
+
+    // Detail modal
+    var editDetailBtn = document.querySelector('[data-action="edit-detail"]');
+    if (editDetailBtn) editDetailBtn.onclick = function () {
+      var item = state.items.find(function (i) { return i.id === state.modal.itemId; });
+      state.modal.editing = true;
+      state.modal.note = item.note || '';
+      state.modal.link = item.link || '';
+      state.modal.location = item.location || '';
+      state.modal.date = toISODateInputValue(item.completedAt);
+      state.modal.category = item.category;
+      render();
+    };
+    var uncompleteBtn = document.querySelector('[data-action="uncomplete"]');
+    if (uncompleteBtn) uncompleteBtn.onclick = function () {
+      var previousModal = state.modal;
+      var id = state.modal.itemId;
+      state.modal = { type: 'confirm', title: 'Move back to To-Do?', message: 'Its story and photos stay saved for when you complete it again.', confirmLabel: 'Move it', onConfirm: function () { uncompleteItem(id); }, previousModal: previousModal };
+      render();
+    };
+    var deleteMemoryBtn = document.querySelector('[data-action="delete-memory"]');
+    if (deleteMemoryBtn) deleteMemoryBtn.onclick = function () {
+      var previousModal = state.modal;
+      var id = state.modal.itemId;
+      state.modal = { type: 'confirm', title: 'Delete this item?', message: 'The photos and story will be gone for good.', onConfirm: function () { deleteItem(id); }, previousModal: previousModal };
+      render();
+    };
+    var saveDetailBtn = document.getElementById('saveDetailBtn');
+    if (saveDetailBtn) saveDetailBtn.onclick = saveDetailEdits;
+
+    // Edit-text modal
+    var saveEditTextBtn = document.getElementById('saveEditTextBtn');
+    if (saveEditTextBtn) saveEditTextBtn.onclick = function () {
+      var input = document.getElementById('editTextInput');
+      var linkEl = document.getElementById('editTextLink');
+      var item = state.items.find(function (i) { return i.id === state.modal.itemId; });
+      if (item) {
+        if (input && input.value.trim()) item.text = input.value.trim();
+        item.category = normalizeCat(state.modal && state.modal.category !== undefined ? state.modal.category : item.category);
+        item.link = normalizeUrl(linkEl ? linkEl.value : item.link);
+        var noteEl = document.getElementById('editTextNote');
+        if (noteEl) item.note = noteEl.value.trim() || null;
+        var locEl = document.getElementById('editTextLocation');
+        if (locEl) item.location = cleanLocation(locEl.value);
+        persistItems();
+      }
+      closeModal();
+    };
+
+    // Confirm modal
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="confirm-yes"]'), function (btn) {
+      btn.onclick = function () { if (state.modal.onConfirm) state.modal.onConfirm(); };
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="cancel-confirm"]'), function (btn) {
+      btn.onclick = function () { state.modal = state.modal.previousModal || null; render(); };
+    });
+
+    // Photo input (shared across complete / edit-detail)
+    var photoInput = document.getElementById('photoInput');
+    if (photoInput) photoInput.onchange = function (e) { handlePhotoFiles(e.target.files); };
+    Array.prototype.forEach.call(document.querySelectorAll('[data-action="remove-photo"]'), function (btn) {
+      btn.onclick = function () { syncModalFieldsFromDOM(); state.modal.photos.splice(parseInt(btn.dataset.idx, 10), 1); render(); };
+    });
+  }
+
+  // ---------------- boot ----------------
+  document.addEventListener('DOMContentLoaded', function () { initAuth(); });
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible' && !state.modal && state.auth.status === 'unlocked') {
+      if (hasPendingSync()) retrySync(); else loadAll();
+    }
+  });
+})();
+</script>
+</body>
+</html>
